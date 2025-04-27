@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
@@ -98,7 +99,9 @@ const Account = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      const { error } = await supabase.auth.admin.deleteUser(user?.id as string);
+      // Instead of using the admin API, we'll use the standard auth API
+      // which allows users to delete their own accounts
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
       
       await logout();
