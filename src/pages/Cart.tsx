@@ -1,19 +1,20 @@
-
 import React, { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Cart = () => {
   const { items, removeFromCart, clearCart, totalPrice } = useCart();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const navigate = useNavigate();
   
-  const handleProceedToCheckout = () => {
+  const handleProceedToCheckout = async () => {
     if (!user) {
       toast.error("Please log in to proceed to checkout");
       return;
@@ -21,22 +22,36 @@ const Cart = () => {
     
     setIsProcessing(true);
     
-    // Mock payment process
-    setTimeout(() => {
-      toast.success("Order placed successfully!");
-      clearCart();
+    try {
+      const { data, error } = await supabase.functions.invoke('create-payment', {
+        body: {
+          amount: grandTotal,
+          orderId: `order-${Date.now()}`,
+          description: `Hotel Booking - ${items.length} room(s)`,
+          redirectUrl: `${window.location.origin}/checkout/success`
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to initiate payment. Please try again.');
+    } finally {
       setIsProcessing(false);
-      // In a real application, redirect to the payment gateway or confirmation page
-    }, 1500);
+    }
   };
   
-  // Format a date to display as "Apr 26, 2025"
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
   
-  // Calculate nights between two dates
   const calculateNights = (checkIn: string, checkOut: string) => {
     const startDate = new Date(checkIn);
     const endDate = new Date(checkOut);
@@ -83,7 +98,6 @@ const Cart = () => {
     );
   }
   
-  // Calculate taxes and total
   const taxes = Math.round(totalPrice * 0.1);
   const grandTotal = totalPrice + taxes;
   
