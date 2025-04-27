@@ -1,6 +1,5 @@
-
 import React, { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -20,9 +19,22 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const Account = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
+  const navigate = useNavigate();
   
   const [profile, setProfile] = useState({
     firstName: user?.firstName || "",
@@ -80,6 +92,20 @@ const Account = () => {
       setIsEditing(false);
     } catch (error) {
       console.error("Profile update error:", error);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      const { error } = await supabase.auth.admin.deleteUser(user?.id as string);
+      if (error) throw error;
+      
+      await logout();
+      navigate("/");
+      toast.success("Your account has been deleted successfully");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast.error("Failed to delete account. Please try again.");
     }
   };
 
@@ -276,12 +302,34 @@ const Account = () => {
                       >
                         Sign Out
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="border-red-700 text-red-700 hover:bg-red-50"
-                      >
-                        Delete Account
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="border-red-700 text-red-700 hover:bg-red-50"
+                          >
+                            Delete Account
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete your
+                              account and remove all your data from our servers.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleDeleteAccount}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Yes, delete my account
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardContent>
