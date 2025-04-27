@@ -25,8 +25,7 @@ serve(async (req) => {
       },
       description,
       redirectUrl,
-      metadata: { orderId },
-      profileId: 'pfl_7BDUsW9geL'
+      metadata: { orderId }
     });
 
     return new Response(
