@@ -96,7 +96,7 @@ const Rooms = () => {
                       <SelectValue placeholder="Any number of guests" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any number of guests</SelectItem>
+                      <SelectItem value="all">Any number of guests</SelectItem>
                       <SelectItem value="1">1+ guests</SelectItem>
                       <SelectItem value="2">2+ guests</SelectItem>
                       <SelectItem value="3">3+ guests</SelectItem>
