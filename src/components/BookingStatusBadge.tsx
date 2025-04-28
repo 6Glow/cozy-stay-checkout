@@ -1,21 +1,7 @@
 
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
-
-type PaymentStatus = 
-  | 'paid'
-  | 'open'
-  | 'expired'
-  | 'canceled'
-  | 'failed'
-  | 'pending'
-  | 'authorized'
-  | 'refused'
-  | 'charged_back'
-  | 'refunded'
-  | 'settled'
-  | 'partially_refunded'
-  | 'refund_requested';
+import { PaymentStatus } from '@/types';
 
 interface BookingStatusBadgeProps {
   status: string;
@@ -46,6 +32,8 @@ const BookingStatusBadge: React.FC<BookingStatusBadgeProps> = ({ status }) => {
         return { variant: "success", label: "Переведен" };
       case 'partially_refunded':
         return { variant: "secondary", label: "Частично возвращен" };
+      case 'refused':
+        return { variant: "destructive", label: "Отклонен" };
       default:
         return { variant: "outline", label: status };
     }
@@ -54,9 +42,7 @@ const BookingStatusBadge: React.FC<BookingStatusBadgeProps> = ({ status }) => {
   const { variant, label } = getStatusConfig(status);
 
   return (
-    <Badge variant={variant as any} className={variant === 'success' ? 'bg-green-500' : variant === 'warning' ? 'bg-yellow-500' : ''}>
-      {label}
-    </Badge>
+    <Badge variant={variant}>{label}</Badge>
   );
 };
 

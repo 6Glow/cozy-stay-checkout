@@ -8,7 +8,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const mollieClient = createMollieClient({ apiKey: Deno.env.get('MOLLIE_API_KEY') || '' });
+const mollieClient = createMollieClient({ 
+  apiKey: Deno.env.get('MOLLIE_API_KEY') || '',
+  profileId: 'pfl_7BDUsW9geL' // Add profile ID
+});
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 

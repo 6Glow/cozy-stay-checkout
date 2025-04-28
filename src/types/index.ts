@@ -40,3 +40,18 @@ export interface Booking {
   createdAt: string;
   updatedAt: string;
 }
+
+export type PaymentStatus = 
+  | 'paid'
+  | 'open'
+  | 'expired'
+  | 'canceled'
+  | 'failed'
+  | 'pending'
+  | 'authorized'
+  | 'refused'
+  | 'charged_back'
+  | 'refunded'
+  | 'settled'
+  | 'partially_refunded'
+  | 'refund_requested';
