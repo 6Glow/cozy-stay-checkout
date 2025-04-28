@@ -7,7 +7,7 @@ interface CartContextType {
   items: CartItem[];
   addToCart: (room: Room, checkIn: string, checkOut: string, guests: number) => void;
   removeFromCart: (roomId: string) => void;
-  clearCart: () => void;
+  clearCart: (silent?: boolean) => void;
   totalPrice: number;
 }
 
@@ -80,9 +80,11 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     toast.info("Item removed from cart");
   };
   
-  const clearCart = () => {
+  const clearCart = (silent = false) => {
     setItems([]);
-    toast.info("Cart cleared");
+    if (!silent) {
+      toast.info("Cart cleared");
+    }
   };
   
   const value = {

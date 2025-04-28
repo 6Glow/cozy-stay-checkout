@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
@@ -9,10 +9,15 @@ import { toast } from "sonner";
 
 const CheckoutSuccess = () => {
   const { clearCart } = useCart();
+  const toastShownRef = useRef(false);
   
   useEffect(() => {
-    clearCart();
-    toast.success("Payment successful! Thank you for your booking.");
+    // Only show toast and clear cart once when component mounts
+    if (!toastShownRef.current) {
+      clearCart(true); // Pass true to clear cart silently without showing a toast
+      toast.success("Payment successful! Thank you for your booking.");
+      toastShownRef.current = true;
+    }
   }, [clearCart]);
 
   return (
