@@ -30,11 +30,13 @@ export interface Booking {
   id: string;
   userId: string;
   roomId: string;
+  room?: Room;
   checkIn: string;
   checkOut: string;
   guests: number;
   totalPrice: number;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: string;
   paymentId?: string;
   createdAt: string;
+  updatedAt: string;
 }

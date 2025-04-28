@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -33,6 +32,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Booking } from "@/types";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import BookingStatusBadge from "@/components/BookingStatusBadge";
 
 const Account = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
@@ -50,6 +60,37 @@ const Account = () => {
     lastName?: string;
     phone?: string;
   }>({});
+  
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserBookings();
+    }
+  }, [user]);
+
+  const fetchUserBookings = async () => {
+    if (!user) return;
+    
+    setIsLoadingBookings(true);
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*, room:room_id(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      setBookings(data || []);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Failed to load your bookings');
+    } finally {
+      setIsLoadingBookings(false);
+    }
+  };
 
   if (!user) {
     return <Navigate to="/login" />;
@@ -99,8 +140,6 @@ const Account = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      // Instead of using the admin API, we'll use the standard auth API
-      // which allows users to delete their own accounts
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
       
@@ -111,6 +150,11 @@ const Account = () => {
       console.error("Error deleting account:", error);
       toast.error("Failed to delete account. Please try again.");
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
   return (
@@ -241,15 +285,49 @@ const Account = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="py-8 text-center text-gray-500">
-                    <p>You don't have any bookings yet.</p>
-                    <Button 
-                      className="mt-4 bg-hotel-primary hover:bg-hotel-primary/90"
-                      onClick={() => window.location.href = "/rooms"}
-                    >
-                      Browse Rooms
-                    </Button>
-                  </div>
+                  {isLoadingBookings ? (
+                    <div className="py-8 text-center text-gray-500">
+                      <p>Loading your bookings...</p>
+                    </div>
+                  ) : bookings.length === 0 ? (
+                    <div className="py-8 text-center text-gray-500">
+                      <p>You don't have any bookings yet.</p>
+                      <Button 
+                        className="mt-4 bg-hotel-primary hover:bg-hotel-primary/90"
+                        onClick={() => navigate("/rooms")}
+                      >
+                        Browse Rooms
+                      </Button>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableCaption>A list of your recent bookings.</TableCaption>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Room</TableHead>
+                          <TableHead>Dates</TableHead>
+                          <TableHead>Guests</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bookings.map((booking) => (
+                          <TableRow key={booking.id}>
+                            <TableCell className="font-medium">{booking.room?.name || 'Unknown Room'}</TableCell>
+                            <TableCell>
+                              {formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}
+                            </TableCell>
+                            <TableCell>{booking.guests}</TableCell>
+                            <TableCell>${booking.totalPrice}</TableCell>
+                            <TableCell>
+                              <BookingStatusBadge status={booking.status} />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

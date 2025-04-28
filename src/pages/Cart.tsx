@@ -18,18 +18,30 @@ const Cart = () => {
   const handleProceedToCheckout = async () => {
     if (!user) {
       toast.error("Please log in to proceed to checkout");
+      navigate("/login");
       return;
     }
     
     setIsProcessing(true);
     
     try {
+      // Calculate the price for each item
+      const itemsWithTotalPrice = items.map(item => {
+        const checkIn = new Date(item.checkIn);
+        const checkOut = new Date(item.checkOut);
+        const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+        const totalPrice = item.room.price * nights;
+        return { ...item, totalPrice };
+      });
+
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           amount: grandTotal,
           orderId: `order-${Date.now()}`,
           description: `Hotel Booking - ${items.length} room(s)`,
-          redirectUrl: `${window.location.origin}/checkout/success`
+          redirectUrl: `${window.location.origin}/checkout/success`,
+          items: itemsWithTotalPrice,
+          userId: user.id
         },
       });
 
