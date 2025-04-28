@@ -25,6 +25,8 @@ const Cart = () => {
     setIsProcessing(true);
     
     try {
+      console.log("Checkout initiated for user:", user.id);
+      
       // Calculate the price for each item
       const itemsWithTotalPrice = items.map(item => {
         const checkIn = new Date(item.checkIn);
@@ -45,11 +47,15 @@ const Cart = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Payment function error:", error);
+        throw error;
+      }
       
       if (data?.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
+        console.error("No checkout URL received:", data);
         throw new Error('No checkout URL received');
       }
     } catch (error) {

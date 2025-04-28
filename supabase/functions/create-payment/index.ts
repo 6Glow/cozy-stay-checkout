@@ -27,9 +27,12 @@ serve(async (req) => {
     const { amount, orderId, description, redirectUrl, items, userId } = await req.json();
     
     if (!userId) {
+      console.log("No user ID provided in the request");
       throw new Error("User ID is required to create a booking");
     }
 
+    console.log("Creating payment with user ID:", userId);
+    
     // Create webhook URL for this payment
     const webhookUrl = `${supabaseUrl}/functions/v1/mollie-webhook`;
 
@@ -42,7 +45,7 @@ serve(async (req) => {
       description,
       redirectUrl,
       webhookUrl,
-      metadata: { orderId }
+      metadata: { orderId, userId }
     });
 
     // Create booking records for each room in the order
@@ -66,6 +69,8 @@ serve(async (req) => {
         console.error('Failed to create booking:', bookingError);
       }
     }
+
+    console.log("Payment created successfully:", payment.id);
 
     return new Response(
       JSON.stringify({
