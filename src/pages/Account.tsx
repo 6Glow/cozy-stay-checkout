@@ -20,7 +20,7 @@ const Account = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async (): Promise<void> => {
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
