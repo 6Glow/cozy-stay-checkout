@@ -28,9 +28,11 @@ const Account = () => {
       await logout();
       navigate("/");
       toast.success("Your account has been deleted successfully");
+      return Promise.resolve();
     } catch (error) {
       console.error("Error deleting account:", error);
       toast.error("Failed to delete account. Please try again.");
+      return Promise.reject(error);
     }
   };
 

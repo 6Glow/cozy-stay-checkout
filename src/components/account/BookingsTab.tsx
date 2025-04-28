@@ -22,6 +22,7 @@ import BookingStatusBadge from "@/components/BookingStatusBadge";
 import { Booking, Room } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { rooms as roomsData } from "@/data/rooms";
 
 interface BookingsTabProps {
   userId: string;
@@ -60,37 +61,28 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
         
       if (error) throw error;
       
-      // Fetch room details for each booking
-      const bookingsWithRoomDetails = await Promise.all(
-        (data || []).map(async (booking) => {
-          const { data: roomData, error: roomError } = await supabase
-            .from('rooms')
-            .select('*')
-            .eq('id', booking.room_id)
-            .single();
-            
-          if (roomError && roomError.code !== 'PGRST116') {
-            console.error('Error fetching room data:', roomError);
-          }
-          
-          const bookingWithRoom: Booking = {
-            id: booking.id,
-            userId: booking.user_id,
-            roomId: booking.room_id,
-            room: roomData as Room | undefined,
-            checkIn: booking.check_in,
-            checkOut: booking.check_out,
-            guests: booking.guests,
-            totalPrice: booking.total_price,
-            status: booking.status || '',
-            paymentId: booking.payment_id,
-            createdAt: booking.created_at,
-            updatedAt: booking.updated_at
-          };
-          
-          return bookingWithRoom;
-        })
-      );
+      // Map booking data to Booking type with room details
+      const bookingsWithRoomDetails = (data || []).map((bookingData): Booking => {
+        // Find room in our static data
+        const roomDetails = roomsData.find(room => room.id === bookingData.room_id);
+        
+        const bookingWithRoom: Booking = {
+          id: bookingData.id,
+          userId: bookingData.user_id,
+          roomId: bookingData.room_id,
+          room: roomDetails, // Use the room from static data or undefined
+          checkIn: bookingData.check_in,
+          checkOut: bookingData.check_out,
+          guests: bookingData.guests,
+          totalPrice: bookingData.total_price,
+          status: bookingData.status || '',
+          paymentId: bookingData.payment_id,
+          createdAt: bookingData.created_at,
+          updatedAt: bookingData.updated_at
+        };
+        
+        return bookingWithRoom;
+      });
       
       setBookings(bookingsWithRoomDetails);
     } catch (error) {
