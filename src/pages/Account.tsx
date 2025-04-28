@@ -36,6 +36,12 @@ const Account = () => {
     }
   };
 
+  // Wrap the logout function to ensure it returns a Promise
+  const handleLogout = (): Promise<void> => {
+    logout();
+    return Promise.resolve();
+  };
+
   if (!user) {
     return <Navigate to="/login" />;
   }
@@ -69,7 +75,7 @@ const Account = () => {
             
             <TabsContent value="security">
               <SecurityTab 
-                logout={logout}
+                logout={handleLogout}
                 handleDeleteAccount={handleDeleteAccount}
               />
             </TabsContent>
