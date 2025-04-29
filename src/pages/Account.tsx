@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
   Tabs,
@@ -19,6 +19,7 @@ import SecurityTab from "@/components/account/SecurityTab";
 const Account = () => {
   const { user, updateProfile, logout, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("profile");
 
   const handleDeleteAccount = async (): Promise<void> => {
     try {
@@ -38,8 +39,9 @@ const Account = () => {
 
   // Wrap the logout function to ensure it returns a Promise
   const handleLogout = (): Promise<void> => {
-    logout();
-    return Promise.resolve();
+    return logout().then(() => {
+      return Promise.resolve();
+    });
   };
 
   if (!user) {
@@ -51,10 +53,15 @@ const Account = () => {
       <Navbar />
       
       <div className="flex-grow py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold mb-8">My Account</h1>
           
-          <Tabs defaultValue="profile" className="space-y-6">
+          <Tabs 
+            defaultValue="profile" 
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-6"
+          >
             <TabsList className="grid grid-cols-3 mb-4 w-full max-w-md">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="bookings">Bookings</TabsTrigger>

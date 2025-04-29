@@ -11,29 +11,29 @@ const BookingStatusBadge: React.FC<BookingStatusBadgeProps> = ({ status }) => {
   const getStatusConfig = (status: string): { variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning"; label: string } => {
     switch (status.toLowerCase()) {
       case 'paid':
-        return { variant: "success", label: "Оплачен" };
+        return { variant: "success", label: "Paid" };
       case 'open':
-        return { variant: "warning", label: "Ожидает оплаты" };
+        return { variant: "warning", label: "Awaiting Payment" };
       case 'expired':
-        return { variant: "destructive", label: "Просрочен" };
+        return { variant: "destructive", label: "Expired" };
       case 'canceled':
-        return { variant: "destructive", label: "Отменен" };
+        return { variant: "destructive", label: "Canceled" };
       case 'failed':
-        return { variant: "destructive", label: "Не удался" };
+        return { variant: "destructive", label: "Failed" };
       case 'pending':
-        return { variant: "warning", label: "В ожидании" };
+        return { variant: "warning", label: "Pending" };
       case 'authorized':
-        return { variant: "warning", label: "Авторизован" };
+        return { variant: "warning", label: "Authorized" };
       case 'refunded':
-        return { variant: "secondary", label: "Возвращен" };
+        return { variant: "secondary", label: "Refunded" };
       case 'charged_back':
-        return { variant: "destructive", label: "Оспорен" };
+        return { variant: "destructive", label: "Disputed" };
       case 'settled':
-        return { variant: "success", label: "Переведен" };
+        return { variant: "success", label: "Settled" };
       case 'partially_refunded':
-        return { variant: "secondary", label: "Частично возвращен" };
+        return { variant: "secondary", label: "Partially Refunded" };
       case 'refused':
-        return { variant: "destructive", label: "Отклонен" };
+        return { variant: "destructive", label: "Refused" };
       default:
         return { variant: "outline", label: status };
     }
