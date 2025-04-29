@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import BookingStatusBadge from "@/components/BookingStatusBadge";
 import { Booking, Room } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,15 +33,32 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
+  // Set up a polling interval for real-time updates
   useEffect(() => {
     fetchUserBookings();
-  }, [userId]);
+    
+    // Set up polling interval (every 30 seconds)
+    const intervalId = setInterval(() => {
+      fetchUserBookings(false); // silent refresh
+    }, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [userId, refreshKey]);
 
-  const fetchUserBookings = async () => {
+  const handleManualRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+    fetchUserBookings();
+  };
+
+  const fetchUserBookings = async (showLoadingState = true) => {
     if (!userId) return;
     
-    setIsLoadingBookings(true);
+    if (showLoadingState) {
+      setIsLoadingBookings(true);
+    }
+    
     try {
       const { data, error } = await supabase
         .from('bookings')
@@ -57,7 +75,8 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
           created_at,
           updated_at
         `)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
         
       if (error) throw error;
       
@@ -87,9 +106,13 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
       setBookings(bookingsWithRoomDetails);
     } catch (error) {
       console.error('Error fetching bookings:', error);
-      toast.error('Failed to load your bookings');
+      if (showLoadingState) {
+        toast.error('Failed to load your bookings');
+      }
     } finally {
-      setIsLoadingBookings(false);
+      if (showLoadingState) {
+        setIsLoadingBookings(false);
+      }
     }
   };
 
@@ -100,9 +123,19 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Your Bookings</CardTitle>
-        <CardDescription>View and manage your bookings</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Your Bookings</CardTitle>
+          <CardDescription>View and manage your bookings</CardDescription>
+        </div>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={handleManualRefresh} 
+          title="Refresh bookings"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoadingBookings ? 'animate-spin' : ''}`} />
+        </Button>
       </CardHeader>
       <CardContent>
         {isLoadingBookings ? (
@@ -129,6 +162,7 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
                 <TableHead>Guests</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Last Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -142,6 +176,9 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ userId }) => {
                   <TableCell>${booking.totalPrice}</TableCell>
                   <TableCell>
                     <BookingStatusBadge status={booking.status} />
+                  </TableCell>
+                  <TableCell className="text-xs text-gray-500">
+                    {booking.updatedAt ? new Date(booking.updatedAt).toLocaleString() : 'N/A'}
                   </TableCell>
                 </TableRow>
               ))}

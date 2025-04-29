@@ -24,38 +24,56 @@ serve(async (req) => {
   }
 
   try {
-    // Get the payment ID from the request
-    const { id } = await req.json();
+    // Get the URL for debugging
+    console.log(`Webhook received with URL: ${req.url}`);
     
-    if (!id) {
+    // Log all request headers for debugging
+    const headers = {};
+    req.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    console.log("Request headers:", JSON.stringify(headers));
+    
+    // Read request body as text first for proper parsing
+    const bodyText = await req.text();
+    console.log("Raw webhook body:", bodyText);
+    
+    // Mollie sends form-urlencoded data, not JSON
+    const params = new URLSearchParams(bodyText);
+    const paymentId = params.get('id');
+    
+    if (!paymentId) {
+      console.error("No payment ID provided in webhook");
       throw new Error("No payment ID provided");
     }
 
-    console.log(`Processing webhook for payment ID: ${id}`);
+    console.log(`Processing webhook for payment ID: ${paymentId}`);
     
     // Fetch payment details from Mollie
-    const payment = await mollieClient.payments.get(id);
+    const payment = await mollieClient.payments.get(paymentId);
     console.log(`Payment status: ${payment.status}`);
     
-    // Extract orderId from metadata
-    const orderId = payment.metadata?.orderId;
-    if (!orderId) {
-      throw new Error("No order ID in payment metadata");
+    // Extract userId from metadata
+    const userId = payment.metadata?.userId;
+    if (!userId) {
+      console.log("No user ID in payment metadata, but continuing anyway");
     }
     
     // Update the booking status in the database
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('bookings')
       .update({ 
         status: payment.status,
         updated_at: new Date().toISOString()
       })
-      .eq('payment_id', id);
+      .eq('payment_id', paymentId);
       
     if (error) {
       console.error("Error updating booking:", error);
       throw error;
     }
+    
+    console.log(`Successfully updated booking status to: ${payment.status}`);
     
     return new Response(
       JSON.stringify({ success: true }),
