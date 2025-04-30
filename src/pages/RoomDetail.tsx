@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -50,6 +51,7 @@ const RoomDetail = () => {
     
     try {
       setIsLoading(true);
+      // Modified query to only get bookings for the current room
       const { data, error } = await supabase
         .from('bookings')
         .select('check_in, check_out')
@@ -73,6 +75,7 @@ const RoomDetail = () => {
         
         while (currentDate <= checkOutDate) {
           allBookedDates.push(new Date(currentDate));
+          // Move to the next day
           currentDate.setDate(currentDate.getDate() + 1);
         }
       });
@@ -175,6 +178,7 @@ const RoomDetail = () => {
     }
     
     addToCart(room, checkIn, checkOut, guests);
+    toast.success(`${room.name} added to cart for ${format(new Date(checkIn), "MMM dd, yyyy")} to ${format(new Date(checkOut), "MMM dd, yyyy")}`);
   };
   
   // Function to disable booked dates in the calendar
@@ -375,7 +379,7 @@ const RoomDetail = () => {
                 Room Availability
               </h2>
               <p className="text-gray-600 mb-4">
-                Check the calendar below for room availability. Dates in gray are already booked.
+                Check the calendar below for room availability. Dates in gray are already booked for this specific room.
               </p>
               <Calendar
                 mode="range"

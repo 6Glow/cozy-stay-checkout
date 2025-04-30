@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Room } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ShoppingCart } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface RoomCardProps {
   room: Room;
@@ -33,10 +36,89 @@ const RoomCard = ({ room }: RoomCardProps) => {
   );
   const [guests, setGuests] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch booked dates for this specific room when dialog opens
+    if (isDialogOpen) {
+      fetchBookedDates();
+    }
+  }, [isDialogOpen, room.id]);
+
+  const fetchBookedDates = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('check_in, check_out')
+        .eq('room_id', room.id)
+        .in('status', ['pending', 'paid', 'authorized']);
+      
+      if (error) {
+        console.error('Error fetching booked dates:', error);
+        return;
+      }
+      
+      // Process the bookings to get all booked dates for this room
+      const allBookedDates: Date[] = [];
+      
+      data.forEach(booking => {
+        const checkInDate = new Date(booking.check_in);
+        const checkOutDate = new Date(booking.check_out);
+        
+        // Add all dates between check-in and check-out to the booked dates array
+        let currentDate = new Date(checkInDate);
+        
+        while (currentDate <= checkOutDate) {
+          allBookedDates.push(new Date(currentDate));
+          // Move to the next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+      
+      setBookedDates(allBookedDates);
+    } catch (error) {
+      console.error('Error in fetchBookedDates:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isDateBooked = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return bookedDates.some(bookedDate => 
+      date.getFullYear() === bookedDate.getFullYear() &&
+      date.getMonth() === bookedDate.getMonth() &&
+      date.getDate() === bookedDate.getDate()
+    );
+  };
+
+  const checkDateRangeAvailability = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let currentDate = new Date(start);
+    
+    while (currentDate <= end) {
+      if (isDateBooked(currentDate.toISOString().split('T')[0])) {
+        return false;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return true;
+  };
 
   const handleAddToCart = () => {
+    // Check if the selected dates are available for this specific room
+    if (!checkDateRangeAvailability(checkIn, checkOut)) {
+      toast.error("Selected dates are not available for this room. Please choose different dates.");
+      return;
+    }
+
     addToCart(room, checkIn, checkOut, guests);
     setIsDialogOpen(false);
+    toast.success(`${room.name} added to cart for ${format(new Date(checkIn), "MMM dd, yyyy")} to ${format(new Date(checkOut), "MMM dd, yyyy")}`);
   };
 
   return (
@@ -107,6 +189,7 @@ const RoomCard = ({ room }: RoomCardProps) => {
               <DialogTitle>Book {room.name}</DialogTitle>
               <DialogDescription>
                 Enter your booking details to add this room to your cart.
+                {isLoading && " Loading availability..."}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -118,7 +201,15 @@ const RoomCard = ({ room }: RoomCardProps) => {
                     type="date"
                     value={checkIn}
                     min={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => setCheckIn(e.target.value)}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      // Check if this specific date is booked for this room
+                      if (isDateBooked(newDate)) {
+                        toast.error("This date is already booked for this room");
+                        return;
+                      }
+                      setCheckIn(newDate);
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -132,7 +223,15 @@ const RoomCard = ({ room }: RoomCardProps) => {
                         new Date(checkIn).getTime() + 86400000
                       ).toISOString().split("T")[0]
                     }
-                    onChange={(e) => setCheckOut(e.target.value)}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      // Check if this specific date is booked for this room
+                      if (isDateBooked(newDate)) {
+                        toast.error("This date is already booked for this room");
+                        return;
+                      }
+                      setCheckOut(newDate);
+                    }}
                   />
                 </div>
               </div>
@@ -152,8 +251,8 @@ const RoomCard = ({ room }: RoomCardProps) => {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" onClick={handleAddToCart}>
-                Add to Cart
+              <Button type="button" onClick={handleAddToCart} disabled={isLoading}>
+                {isLoading ? "Loading..." : "Add to Cart"}
               </Button>
             </DialogFooter>
           </DialogContent>
