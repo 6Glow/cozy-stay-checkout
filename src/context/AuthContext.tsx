@@ -8,7 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
@@ -96,10 +96,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
-    toast.success("You've been logged out successfully.");
+  const logout = async (): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      setUser(null);
+      localStorage.removeItem("user");
+      toast.success("You've been logged out successfully.");
+      resolve();
+    });
   };
 
   const forgotPassword = async (email: string) => {

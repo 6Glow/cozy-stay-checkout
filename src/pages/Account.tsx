@@ -37,11 +37,9 @@ const Account = () => {
     }
   };
 
-  // Wrap the logout function to ensure it returns a Promise
+  // The logout function now returns a Promise, so this is fine
   const handleLogout = (): Promise<void> => {
-    return logout().then(() => {
-      return Promise.resolve();
-    });
+    return logout();
   };
 
   if (!user) {
