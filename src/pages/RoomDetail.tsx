@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -19,7 +18,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ShoppingCart, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, isWithinInterval, parseISO, addDays } from "date-fns";
+import { format, isWithinInterval, parseISO, addDays, isBefore } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -81,11 +80,45 @@ const RoomDetail = () => {
       });
       
       setBookedDates(allBookedDates);
+      
+      // After fetching the booked dates, set the initial check-in and check-out dates
+      // to the nearest available dates
+      setInitialAvailableDates(allBookedDates);
+      
     } catch (error) {
       console.error('Error in fetchBookedDates:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Find the nearest available date starting from a given date
+  const findNextAvailableDate = (startDate: Date, bookedDates: Date[]): Date => {
+    let currentDate = new Date(startDate);
+    
+    // Keep incrementing the date until we find one that's not booked
+    while (isDateBooked(currentDate)) {
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return currentDate;
+  };
+  
+  // Set initial check-in and check-out dates to the nearest available dates
+  const setInitialAvailableDates = (bookedDates: Date[]) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Find the nearest available check-in date from today
+    const nextAvailableCheckIn = findNextAvailableDate(today, bookedDates);
+    
+    // Find the nearest available check-out date from the day after the check-in date
+    const dayAfterCheckIn = new Date(nextAvailableCheckIn);
+    dayAfterCheckIn.setDate(dayAfterCheckIn.getDate() + 1);
+    const nextAvailableCheckOut = findNextAvailableDate(dayAfterCheckIn, bookedDates);
+    
+    setCheckIn(format(nextAvailableCheckIn, "yyyy-MM-dd"));
+    setCheckOut(format(nextAvailableCheckOut, "yyyy-MM-dd"));
   };
   
   const isDateBooked = (date: Date) => {
@@ -99,10 +132,11 @@ const RoomDetail = () => {
   const handleCheckInChange = (date: Date | undefined) => {
     if (!date) return;
     
-    // If the selected date is already booked, don't allow it
+    // If the selected date is already booked, find the next available date
     if (isDateBooked(date)) {
-      toast.error("This date is already booked");
-      return;
+      const nextAvailableDate = findNextAvailableDate(date, bookedDates);
+      toast.info(`Selected date is booked. Showing next available date: ${format(nextAvailableDate, "MMM dd, yyyy")}`);
+      date = nextAvailableDate;
     }
     
     const formattedDate = format(date, "yyyy-MM-dd");
@@ -110,21 +144,23 @@ const RoomDetail = () => {
     
     // Reset check-out if it's before check-in
     const checkOutDate = new Date(checkOut);
-    if (date > checkOutDate) {
-      // Set check-out to the day after check-in
+    if (date >= checkOutDate) {
+      // Find next available date after check-in
       const nextDay = new Date(date);
       nextDay.setDate(nextDay.getDate() + 1);
-      setCheckOut(format(nextDay, "yyyy-MM-dd"));
+      const nextAvailableCheckOut = findNextAvailableDate(nextDay, bookedDates);
+      setCheckOut(format(nextAvailableCheckOut, "yyyy-MM-dd"));
     }
   };
   
   const handleCheckOutChange = (date: Date | undefined) => {
     if (!date) return;
     
-    // If the selected date is already booked, don't allow it
+    // If the selected date is already booked, find the next available date
     if (isDateBooked(date)) {
-      toast.error("This date is already booked");
-      return;
+      const nextAvailableDate = findNextAvailableDate(date, bookedDates);
+      toast.info(`Selected date is booked. Showing next available date: ${format(nextAvailableDate, "MMM dd, yyyy")}`);
+      date = nextAvailableDate;
     }
     
     const formattedDate = format(date, "yyyy-MM-dd");
@@ -372,7 +408,7 @@ const RoomDetail = () => {
               </TabsContent>
             </Tabs>
             
-            {/* Add the availability calendar section */}
+            {/* Room Availability Calendar section */}
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h2 className="text-xl font-semibold mb-4 flex items-center">
                 <CalendarDays className="mr-2 h-5 w-5 text-hotel-primary" />
