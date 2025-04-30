@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Carousel,
@@ -17,7 +16,12 @@ import { rooms } from "@/data/rooms";
 import { useCart } from "@/context/CartContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, CalendarDays } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { format, isWithinInterval, parseISO, addDays } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { toast } from "sonner";
 
 const RoomDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +35,98 @@ const RoomDetail = () => {
     new Date(Date.now() + 86400000).toISOString().split("T")[0]
   );
   const [guests, setGuests] = useState(1);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  
+  useEffect(() => {
+    if (room) {
+      fetchBookedDates();
+    }
+  }, [room]);
+  
+  const fetchBookedDates = async () => {
+    if (!room) return;
+    
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('check_in, check_out')
+        .eq('room_id', room.id)
+        .in('status', ['pending', 'paid', 'authorized']);
+      
+      if (error) {
+        console.error('Error fetching booked dates:', error);
+        return;
+      }
+      
+      // Process the bookings to get all booked dates
+      const allBookedDates: Date[] = [];
+      
+      data.forEach(booking => {
+        const checkInDate = new Date(booking.check_in);
+        const checkOutDate = new Date(booking.check_out);
+        
+        // Add all dates between check-in and check-out to the booked dates array
+        let currentDate = new Date(checkInDate);
+        
+        while (currentDate <= checkOutDate) {
+          allBookedDates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+      
+      setBookedDates(allBookedDates);
+    } catch (error) {
+      console.error('Error in fetchBookedDates:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const isDateBooked = (date: Date) => {
+    return bookedDates.some(bookedDate => 
+      date.getFullYear() === bookedDate.getFullYear() &&
+      date.getMonth() === bookedDate.getMonth() &&
+      date.getDate() === bookedDate.getDate()
+    );
+  };
+  
+  const handleCheckInChange = (date: Date | undefined) => {
+    if (!date) return;
+    
+    // If the selected date is already booked, don't allow it
+    if (isDateBooked(date)) {
+      toast.error("This date is already booked");
+      return;
+    }
+    
+    const formattedDate = format(date, "yyyy-MM-dd");
+    setCheckIn(formattedDate);
+    
+    // Reset check-out if it's before check-in
+    const checkOutDate = new Date(checkOut);
+    if (date > checkOutDate) {
+      // Set check-out to the day after check-in
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      setCheckOut(format(nextDay, "yyyy-MM-dd"));
+    }
+  };
+  
+  const handleCheckOutChange = (date: Date | undefined) => {
+    if (!date) return;
+    
+    // If the selected date is already booked, don't allow it
+    if (isDateBooked(date)) {
+      toast.error("This date is already booked");
+      return;
+    }
+    
+    const formattedDate = format(date, "yyyy-MM-dd");
+    setCheckOut(formattedDate);
+  };
   
   if (!room) {
     return (
@@ -55,9 +151,35 @@ const RoomDetail = () => {
   const checkOutDate = new Date(checkOut);
   const nights = Math.max(1, Math.round((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
   const totalPrice = room.price * nights;
-
+  
   const handleAddToCart = () => {
+    // Check if the selected dates are available
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    
+    // Check each day in the range to see if any are booked
+    let currentDate = new Date(start);
+    let isAvailable = true;
+    
+    while (currentDate <= end) {
+      if (isDateBooked(currentDate)) {
+        isAvailable = false;
+        break;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    if (!isAvailable) {
+      toast.error("Selected dates are not available. Please choose different dates.");
+      return;
+    }
+    
     addToCart(room, checkIn, checkOut, guests);
+  };
+  
+  // Function to disable booked dates in the calendar
+  const isDateDisabled = (date: Date) => {
+    return isDateBooked(date);
   };
   
   return (
@@ -245,6 +367,38 @@ const RoomDetail = () => {
                 </div>
               </TabsContent>
             </Tabs>
+            
+            {/* Add the availability calendar section */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <CalendarDays className="mr-2 h-5 w-5 text-hotel-primary" />
+                Room Availability
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Check the calendar below for room availability. Dates in gray are already booked.
+              </p>
+              <Calendar
+                mode="range"
+                selected={{
+                  from: new Date(checkIn),
+                  to: new Date(checkOut),
+                }}
+                onSelect={(range) => {
+                  if (range?.from) {
+                    handleCheckInChange(range.from);
+                  }
+                  if (range?.to) {
+                    handleCheckOutChange(range.to);
+                  }
+                }}
+                disabled={[
+                  { before: new Date() },
+                  isDateDisabled,
+                ]}
+                numberOfMonths={2}
+                className="border rounded-md"
+              />
+            </div>
           </div>
           
           <div className="lg:col-span-1">
@@ -261,27 +415,56 @@ const RoomDetail = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="check-in">Check-in</Label>
-                    <Input
-                      id="check-in"
-                      type="date"
-                      value={checkIn}
-                      min={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                    />
+                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left">
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {format(new Date(checkIn), "MMM dd, yyyy")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={new Date(checkIn)}
+                          onSelect={(date) => {
+                            if (date) {
+                              handleCheckInChange(date);
+                              setIsCalendarOpen(false);
+                            }
+                          }}
+                          disabled={[
+                            { before: new Date() },
+                            isDateDisabled,
+                          ]}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="check-out">Check-out</Label>
-                    <Input
-                      id="check-out"
-                      type="date"
-                      value={checkOut}
-                      min={
-                        new Date(
-                          new Date(checkIn).getTime() + 86400000
-                        ).toISOString().split("T")[0]
-                      }
-                      onChange={(e) => setCheckOut(e.target.value)}
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left">
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {format(new Date(checkOut), "MMM dd, yyyy")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={new Date(checkOut)}
+                          onSelect={(date) => {
+                            if (date) handleCheckOutChange(date);
+                          }}
+                          disabled={[
+                            { before: addDays(new Date(checkIn), 1) },
+                            isDateDisabled,
+                          ]}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 
@@ -318,9 +501,22 @@ const RoomDetail = () => {
                 <Button 
                   className="w-full bg-hotel-primary hover:bg-hotel-primary/90"
                   onClick={handleAddToCart}
+                  disabled={isLoading}
                 >
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Add to Cart
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </span>
+                  ) : (
+                    <>
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Add to Cart
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
