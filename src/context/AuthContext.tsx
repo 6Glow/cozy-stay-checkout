@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +13,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,40 +34,96 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Set up auth state listener and check for existing session
   useEffect(() => {
-    // Check for stored user data
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          const userData: User = {
+            id: session.user.id,
+            email: session.user.email || "",
+            firstName: session.user.user_metadata?.firstName || "",
+            lastName: session.user.user_metadata?.lastName || "",
+            phone: session.user.user_metadata?.phone || "",
+            createdAt: session.user.created_at,
+          };
+          
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+        } else {
+          setUser(null);
+          localStorage.removeItem("user");
+        }
+        setIsLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    const checkSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        
+        if (data.session?.user) {
+          const userData: User = {
+            id: data.session.user.id,
+            email: data.session.user.email || "",
+            firstName: data.session.user.user_metadata?.firstName || "",
+            lastName: data.session.user.user_metadata?.lastName || "",
+            phone: data.session.user.user_metadata?.phone || "",
+            createdAt: data.session.user.created_at,
+          };
+          
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+        } else {
+          // Check for stored user data as fallback
+          const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+            setUser(JSON.parse(storedUser));
+          }
+        }
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error checking session:", error);
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+    
+    // Clean up subscription
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      // Mock successful login
-      if (email && password) {
+      if (error) throw error;
+      
+      if (data.user) {
         const userData: User = {
-          id: "user-1",
-          email,
-          firstName: "John",
-          lastName: "Doe",
-          phone: "+1234567890",
-          createdAt: new Date().toISOString(),
+          id: data.user.id,
+          email: data.user.email || "",
+          firstName: data.user.user_metadata?.firstName || "",
+          lastName: data.user.user_metadata?.lastName || "",
+          phone: data.user.user_metadata?.phone || "",
+          createdAt: data.user.created_at,
         };
         
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
         toast.success("Login successful!");
-      } else {
-        throw new Error("Invalid credentials");
       }
-    } catch (error) {
-      toast.error("Login failed. Please check your credentials.");
+    } catch (error: any) {
+      toast.error(error.message || "Login failed. Please check your credentials.");
       throw error;
     } finally {
       setIsLoading(false);
@@ -75,21 +133,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const register = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock successful registration
-      const userData: User = {
-        id: "user-" + Math.random().toString(36).substr(2, 9),
+      const { data, error } = await supabase.auth.signUp({
         email,
-        createdAt: new Date().toISOString(),
-      };
+        password,
+      });
       
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
-      toast.success("Registration successful!");
-    } catch (error) {
-      toast.error("Registration failed. Please try again.");
+      if (error) throw error;
+      
+      if (data.user) {
+        const userData: User = {
+          id: data.user.id,
+          email: data.user.email || "",
+          createdAt: data.user.created_at,
+        };
+        
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        toast.success("Registration successful!");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Registration failed. Please try again.");
       throw error;
     } finally {
       setIsLoading(false);
@@ -97,23 +160,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async (): Promise<void> => {
-    return new Promise<void>((resolve) => {
+    setIsLoading(true);
+    try {
+      await supabase.auth.signOut();
       setUser(null);
       localStorage.removeItem("user");
       toast.success("You've been logged out successfully.");
-      resolve();
-    });
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error logging out:", error);
+      toast.error("Failed to log out. Please try again.");
+      return Promise.reject(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const forgotPassword = async (email: string) => {
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
       
       toast.success("Password reset link sent to your email.");
-    } catch (error) {
-      toast.error("Failed to send reset email. Please try again.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send reset email. Please try again.");
       throw error;
     } finally {
       setIsLoading(false);
@@ -123,12 +197,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const resetPassword = async (token: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.updateUser({
+        password,
+      });
+      
+      if (error) throw error;
       
       toast.success("Password has been reset successfully.");
-    } catch (error) {
-      toast.error("Password reset failed. Please try again.");
+    } catch (error: any) {
+      toast.error(error.message || "Password reset failed. Please try again.");
       throw error;
     } finally {
       setIsLoading(false);
@@ -138,8 +215,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const updateProfile = async (userData: Partial<User>) => {
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          phone: userData.phone,
+        }
+      });
+      
+      if (error) throw error;
       
       if (user) {
         const updatedUser = { ...user, ...userData };
@@ -147,9 +231,44 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         localStorage.setItem("user", JSON.stringify(updatedUser));
         toast.success("Profile updated successfully.");
       }
-    } catch (error) {
-      toast.error("Failed to update profile. Please try again.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile. Please try again.");
       throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    setIsLoading(true);
+    try {
+      // Delete user's bookings first
+      const { error: bookingsError } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('user_id', user?.id);
+        
+      if (bookingsError) {
+        throw bookingsError;
+      }
+
+      // Then delete the auth user
+      const { error: userError } = await supabase.auth.admin.deleteUser(
+        user?.id || ""
+      );
+      
+      if (userError) {
+        throw userError;
+      }
+
+      setUser(null);
+      localStorage.removeItem("user");
+      toast.success("Your account has been deleted successfully");
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast.error(error.message || "Failed to delete account. Please try again.");
+      return Promise.reject(error);
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +282,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout,
     forgotPassword,
     resetPassword,
-    updateProfile
+    updateProfile,
+    deleteAccount
   };
 
   return (

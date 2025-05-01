@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardHeader,
@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface SecurityTabProps {
   logout: () => Promise<void>;
@@ -28,6 +29,22 @@ interface SecurityTabProps {
 }
 
 const SecurityTab: React.FC<SecurityTabProps> = ({ logout, handleDeleteAccount }) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDeleteAccount = async () => {
+    try {
+      setIsDeleting(true);
+      await handleDeleteAccount();
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -78,7 +95,7 @@ const SecurityTab: React.FC<SecurityTabProps> = ({ logout, handleDeleteAccount }
             >
               Sign Out
             </Button>
-            <AlertDialog>
+            <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
@@ -87,21 +104,25 @@ const SecurityTab: React.FC<SecurityTabProps> = ({ logout, handleDeleteAccount }
                   Delete Account
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-md">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogTitle className="text-xl">Delete Your Account?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This action cannot be undone. This will permanently delete your
-                    account and remove all your data from our servers.
+                    account and remove all your data from our servers, including all your bookings and personal information.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={handleDeleteAccount}
+                    onClick={(e) => {
+                      e.preventDefault(); // Prevent dialog from closing automatically
+                      confirmDeleteAccount();
+                    }}
                     className="bg-red-600 hover:bg-red-700 text-white"
+                    disabled={isDeleting}
                   >
-                    Yes, delete my account
+                    {isDeleting ? "Deleting..." : "Yes, delete my account"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

@@ -10,29 +10,22 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import ProfileTab from "@/components/account/ProfileTab";
 import BookingsTab from "@/components/account/BookingsTab";
 import SecurityTab from "@/components/account/SecurityTab";
 
 const Account = () => {
-  const { user, updateProfile, logout, isLoading } = useAuth();
+  const { user, updateProfile, logout, isLoading, deleteAccount } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
 
   const handleDeleteAccount = async (): Promise<void> => {
     try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      if (error) throw error;
-      
-      await logout();
+      await deleteAccount();
       navigate("/");
-      toast.success("Your account has been deleted successfully");
       return Promise.resolve();
     } catch (error) {
       console.error("Error deleting account:", error);
-      toast.error("Failed to delete account. Please try again.");
       return Promise.reject(error);
     }
   };

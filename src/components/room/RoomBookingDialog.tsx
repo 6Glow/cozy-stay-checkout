@@ -36,7 +36,6 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch booked dates for this specific room when dialog opens
     if (isDialogOpen) {
       fetchBookedDates();
     }
@@ -59,19 +58,21 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
       // Process the bookings to get all booked dates for this room
       const allBookedDates: Date[] = [];
       
-      data.forEach(booking => {
-        const checkInDate = new Date(booking.check_in);
-        const checkOutDate = new Date(booking.check_out);
-        
-        // Add all dates between check-in and check-out to the booked dates array
-        let currentDate = new Date(checkInDate);
-        
-        while (currentDate <= checkOutDate) {
-          allBookedDates.push(new Date(currentDate));
-          // Move to the next day
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      });
+      if (data) {
+        data.forEach(booking => {
+          const checkInDate = new Date(booking.check_in);
+          const checkOutDate = new Date(booking.check_out);
+          
+          // Add all dates between check-in and check-out to the booked dates array
+          let currentDate = new Date(checkInDate);
+          
+          while (currentDate <= checkOutDate) {
+            allBookedDates.push(new Date(currentDate));
+            // Move to the next day
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+        });
+      }
       
       setBookedDates(allBookedDates);
       
@@ -87,7 +88,7 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
   };
   
   // Find the nearest available date starting from a given date
-  const findNextAvailableDate = (startDate: Date, bookedDates: Date[]): Date => {
+  const findNextAvailableDate = (startDate: Date): Date => {
     let currentDate = new Date(startDate);
     
     // Keep incrementing the date until we find one that's not booked
@@ -104,12 +105,12 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
     today.setHours(0, 0, 0, 0);
     
     // Find the nearest available check-in date from today
-    const nextAvailableCheckIn = findNextAvailableDate(today, bookedDates);
+    const nextAvailableCheckIn = findNextAvailableDate(today);
     
     // Find the nearest available check-out date from the day after the check-in date
     const dayAfterCheckIn = new Date(nextAvailableCheckIn);
     dayAfterCheckIn.setDate(dayAfterCheckIn.getDate() + 1);
-    const nextAvailableCheckOut = findNextAvailableDate(dayAfterCheckIn, bookedDates);
+    const nextAvailableCheckOut = findNextAvailableDate(dayAfterCheckIn);
     
     setCheckIn(format(nextAvailableCheckIn, "yyyy-MM-dd"));
     setCheckOut(format(nextAvailableCheckOut, "yyyy-MM-dd"));
@@ -156,7 +157,7 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
     
     // If the selected date is already booked, find the next available date
     if (isDateBooked(date)) {
-      const nextAvailableDate = findNextAvailableDate(date, bookedDates);
+      const nextAvailableDate = findNextAvailableDate(date);
       const formattedDate = format(nextAvailableDate, "yyyy-MM-dd");
       
       if (type === 'check-in') {
@@ -168,7 +169,7 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
         if (nextAvailableDate >= checkOutDate) {
           const nextDay = new Date(nextAvailableDate);
           nextDay.setDate(nextDay.getDate() + 1);
-          const nextAvailableCheckOut = findNextAvailableDate(nextDay, bookedDates);
+          const nextAvailableCheckOut = findNextAvailableDate(nextDay);
           setCheckOut(format(nextAvailableCheckOut, "yyyy-MM-dd"));
         }
       } else {
@@ -185,7 +186,7 @@ const RoomBookingDialog = ({ room }: RoomBookingDialogProps) => {
         if (date >= checkOutDate) {
           const nextDay = new Date(date);
           nextDay.setDate(nextDay.getDate() + 1);
-          const nextAvailableCheckOut = findNextAvailableDate(nextDay, bookedDates);
+          const nextAvailableCheckOut = findNextAvailableDate(nextDay);
           setCheckOut(format(nextAvailableCheckOut, "yyyy-MM-dd"));
         }
       } else {

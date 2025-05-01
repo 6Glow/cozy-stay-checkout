@@ -20,7 +20,7 @@ const DateLegend = () => {
 
   return (
     <motion.div 
-      className="mt-4 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400"
+      className="mt-4 flex items-center justify-between text-sm text-gray-500"
       variants={containerVariants}
       initial="hidden"
       animate="show"
@@ -34,7 +34,7 @@ const DateLegend = () => {
         <span>Check-out</span>
       </motion.div>
       <motion.div className="flex items-center" variants={itemVariants}>
-        <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 mr-2"></div>
+        <div className="w-3 h-3 rounded-full bg-gray-200 mr-2"></div>
         <span>Booked</span>
       </motion.div>
     </motion.div>

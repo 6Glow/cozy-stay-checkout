@@ -1,58 +1,57 @@
 
-import React, { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/context/CartContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { toast } from "sonner";
+import { useCart } from "@/context/CartContext";
+import { CheckCircle } from "lucide-react";
 
 const CheckoutSuccess = () => {
   const { clearCart } = useCart();
-  const toastShownRef = useRef(false);
   
   useEffect(() => {
-    // Only show toast and clear cart once when component mounts
-    if (!toastShownRef.current) {
-      clearCart(true); // Pass true to clear cart silently without showing a toast
-      toast.success("Payment successful! Thank you for your booking.");
-      toastShownRef.current = true;
+    // Clear the cart when checkout is successful
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('clearCart') === 'true') {
+      clearCart(true); // Silent clear without toast notification
     }
   }, [clearCart]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      
       <div className="flex-grow flex items-center justify-center py-16 px-4">
-        <div className="text-center max-w-md">
-          <div className="mb-4 flex justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="64"
-              height="64"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-green-500"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
+        <div className="max-w-md w-full text-center">
+          <div className="mb-6 flex justify-center">
+            <CheckCircle className="h-16 w-16 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Payment Successful!</h2>
-          <p className="text-gray-600 mb-6">
-            Your booking has been confirmed. You will receive a confirmation email shortly.
+          <h1 className="text-3xl font-bold mb-4">Payment Successful!</h1>
+          <p className="text-gray-600 mb-8">
+            Thank you for your booking. We have sent the confirmation details to your email.
+            Your room is now reserved for your selected dates.
           </p>
-          <Link to="/rooms">
-            <Button className="bg-hotel-primary hover:bg-hotel-primary/90">
-              Continue Browsing
-            </Button>
-          </Link>
+          <div className="space-y-4">
+            <Link to="/account">
+              <Button 
+                className="w-full bg-hotel-primary hover:bg-hotel-primary/90"
+              >
+                View My Bookings
+              </Button>
+            </Link>
+            <Link to="/rooms">
+              <Button 
+                variant="outline" 
+                className="w-full"
+              >
+                Browse More Rooms
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
+      
       <Footer />
     </div>
   );

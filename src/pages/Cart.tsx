@@ -41,7 +41,7 @@ const Cart = () => {
           amount: grandTotal,
           orderId: `order-${Date.now()}`,
           description: `Hotel Booking - ${items.length} room(s)`,
-          redirectUrl: `${window.location.origin}/checkout/success`,
+          redirectUrl: `${window.location.origin}/checkout/success?clearCart=true`, // Add query param for cart clearing
           items: itemsWithTotalPrice,
           userId: user.id
         },
@@ -53,6 +53,7 @@ const Cart = () => {
       }
       
       if (data?.checkoutUrl) {
+        // The cart will be cleared in the CheckoutSuccess component
         window.location.href = data.checkoutUrl;
       } else {
         console.error("No checkout URL received:", data);

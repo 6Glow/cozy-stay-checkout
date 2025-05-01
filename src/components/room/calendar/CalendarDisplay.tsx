@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CalendarDisplayProps {
@@ -39,7 +39,7 @@ const CalendarDisplay = ({
             <motion.div
               className={cn(
                 "w-full h-full flex items-center justify-center rounded-md transition-colors calendar-day-hover",
-                isBooked && "bg-gray-100 dark:bg-gray-700 cursor-not-allowed",
+                isBooked && "bg-gray-200 cursor-not-allowed",
                 isCheckIn && "bg-hotel-primary text-white",
                 isCheckOut && "bg-hotel-secondary text-white",
                 isHovered && !isBooked && !isCheckIn && !isCheckOut && "bg-hotel-accent/20",
@@ -60,18 +60,16 @@ const CalendarDisplay = ({
               onMouseEnter={() => setHoveredDate(day)}
               onMouseLeave={() => setHoveredDate(null)}
             >
-              <AnimatePresence>
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {day.getDate()}
-                </motion.span>
-              </AnimatePresence>
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {day.getDate()}
+              </motion.span>
               {isBooked && (
                 <motion.div 
-                  className="absolute bottom-0 right-0 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"
+                  className="absolute bottom-0 right-0 w-2 h-2 bg-gray-400 rounded-full"
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ repeat: isHovered ? Infinity : 0, duration: 1 }}
                 />
@@ -91,7 +89,7 @@ const CalendarDisplay = ({
 
   return (
     <motion.div 
-      className="rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700 shadow-lg"
+      className="rounded-lg overflow-hidden border border-gray-100 shadow-lg"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -115,9 +113,9 @@ const CalendarDisplay = ({
           isDateDisabled,
         ]}
         numberOfMonths={2}
-        className="border-0 rounded-md"
+        className="border-0 rounded-md pointer-events-auto"
         classNames={{
-          day_range_middle: "day-range-middle bg-hotel-accent/20 text-foreground dark:text-white",
+          day_range_middle: "day-range-middle bg-hotel-accent/20 text-foreground",
           day_selected: "bg-hotel-primary text-primary-foreground hover:bg-hotel-primary hover:text-primary-foreground",
           day_today: "bg-accent/50 text-accent-foreground",
         }}
