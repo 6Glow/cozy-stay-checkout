@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CalendarDisplayProps {
   checkIn: string;
@@ -28,29 +30,72 @@ const CalendarDisplay = ({
     const isCheckIn = isSameDay(day, checkInDate);
     const isCheckOut = isSameDay(day, checkOutDate);
     const isHovered = hoveredDate ? isSameDay(day, hoveredDate) : false;
+    const isToday = isSameDay(day, new Date());
     
     return (
-      <div
-        className={cn(
-          "w-full h-full flex items-center justify-center rounded-md transition-colors",
-          isBooked && "bg-gray-100",
-          isCheckIn && "bg-hotel-primary text-white",
-          isCheckOut && "bg-hotel-secondary text-white",
-          isHovered && !isBooked && !isCheckIn && !isCheckOut && "bg-hotel-accent/20",
-        )}
-        onMouseEnter={() => setHoveredDate(day)}
-        onMouseLeave={() => setHoveredDate(null)}
-      >
-        {day.getDate()}
-        {isBooked && (
-          <div className="absolute bottom-0 right-0 w-2 h-2 bg-gray-400 rounded-full" />
-        )}
-      </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <motion.div
+              className={cn(
+                "w-full h-full flex items-center justify-center rounded-md transition-colors calendar-day-hover",
+                isBooked && "bg-gray-100 dark:bg-gray-700 cursor-not-allowed",
+                isCheckIn && "bg-hotel-primary text-white",
+                isCheckOut && "bg-hotel-secondary text-white",
+                isHovered && !isBooked && !isCheckIn && !isCheckOut && "bg-hotel-accent/20",
+                isToday && !isCheckIn && !isCheckOut && "ring-2 ring-hotel-accent/50",
+              )}
+              whileHover={{ scale: isBooked ? 1 : 1.1 }}
+              animate={{ 
+                scale: isCheckIn || isCheckOut ? [1, 1.1, 1] : 1,
+              }}
+              transition={{ 
+                duration: 0.3,
+                scale: {
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 15,
+                }
+              }}
+              onMouseEnter={() => setHoveredDate(day)}
+              onMouseLeave={() => setHoveredDate(null)}
+            >
+              <AnimatePresence>
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {day.getDate()}
+                </motion.span>
+              </AnimatePresence>
+              {isBooked && (
+                <motion.div 
+                  className="absolute bottom-0 right-0 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: isHovered ? Infinity : 0, duration: 1 }}
+                />
+              )}
+            </motion.div>
+          </TooltipTrigger>
+          <TooltipContent>
+            {isCheckIn && "Check-in date"}
+            {isCheckOut && "Check-out date"}
+            {isBooked && "Unavailable"}
+            {!isCheckIn && !isCheckOut && !isBooked && "Available"}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   };
 
   return (
-    <div className="rounded-lg overflow-hidden border border-gray-100">
+    <motion.div 
+      className="rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700 shadow-lg"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <Calendar
         mode="range"
         selected={{
@@ -72,12 +117,15 @@ const CalendarDisplay = ({
         numberOfMonths={2}
         className="border-0 rounded-md"
         classNames={{
-          day_range_middle: "day-range-middle bg-hotel-accent/20 text-foreground",
+          day_range_middle: "day-range-middle bg-hotel-accent/20 text-foreground dark:text-white",
           day_selected: "bg-hotel-primary text-primary-foreground hover:bg-hotel-primary hover:text-primary-foreground",
           day_today: "bg-accent/50 text-accent-foreground",
         }}
+        components={{
+          Day: ({ date, ...props }) => renderDay(date),
+        }}
       />
-    </div>
+    </motion.div>
   );
 };
 
