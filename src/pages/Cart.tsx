@@ -7,12 +7,15 @@ import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 
 const Cart = () => {
   const { items, removeFromCart, clearCart, totalPrice } = useCart();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
   const navigate = useNavigate();
   
   const handleProceedToCheckout = async () => {
@@ -23,6 +26,7 @@ const Cart = () => {
     }
     
     setIsProcessing(true);
+    setProcessingError(null);
     
     try {
       console.log("Checkout initiated for user:", user.id);
@@ -36,12 +40,15 @@ const Cart = () => {
         return { ...item, totalPrice };
       });
 
+      const taxes = Math.round(totalPrice * 0.1);
+      const grandTotal = totalPrice + taxes;
+
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           amount: grandTotal,
           orderId: `order-${Date.now()}`,
           description: `Hotel Booking - ${items.length} room(s)`,
-          redirectUrl: `${window.location.origin}/checkout/success?clearCart=true`, // Add query param for cart clearing
+          redirectUrl: `${window.location.origin}/checkout/success?clearCart=true`,
           items: itemsWithTotalPrice,
           userId: user.id
         },
@@ -53,7 +60,6 @@ const Cart = () => {
       }
       
       if (data?.checkoutUrl) {
-        // The cart will be cleared in the CheckoutSuccess component
         window.location.href = data.checkoutUrl;
       } else {
         console.error("No checkout URL received:", data);
@@ -61,6 +67,7 @@ const Cart = () => {
       }
     } catch (error) {
       console.error('Payment error:', error);
+      setProcessingError('Failed to initiate payment. Please try again or contact support.');
       toast.error('Failed to initiate payment. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -127,6 +134,16 @@ const Cart = () => {
       
       <div className="flex-grow container mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold mb-8">Your Cart</h1>
+        
+        {processingError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {processingError}
+            </AlertDescription>
+          </Alert>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
@@ -236,6 +253,14 @@ const Cart = () => {
               >
                 {isProcessing ? "Processing..." : "Proceed to Checkout"}
               </Button>
+              
+              {!user && (
+                <Alert className="mt-4 bg-blue-50 text-blue-800 border-blue-100">
+                  <AlertDescription>
+                    Please <Link to="/login" className="font-medium underline">login</Link> to checkout.
+                  </AlertDescription>
+                </Alert>
+              )}
               
               <div className="mt-4 text-xs text-gray-500 text-center">
                 <p>By proceeding, you agree to our Terms of Service and Privacy Policy</p>

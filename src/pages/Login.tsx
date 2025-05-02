@@ -5,14 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { MailIcon } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isEmailNotConfirmed, setIsEmailNotConfirmed] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -33,6 +37,20 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleResendConfirmation = async () => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.auth.resend({
+        type: 'signup',
+        email
+      });
+      setAuthError("Confirmation email sent. Please check your inbox.");
+    } catch (error) {
+      console.error("Error sending confirmation email:", error);
+      setAuthError("Failed to send confirmation email. Please try again.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -40,11 +58,20 @@ const Login = () => {
       return;
     }
     
+    setAuthError(null);
+    setIsEmailNotConfirmed(false);
+    
     try {
       await login(email, password);
       navigate("/");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
+      
+      if (error?.message === "Email not confirmed" || error?.code === "email_not_confirmed") {
+        setIsEmailNotConfirmed(true);
+      } else {
+        setAuthError(error?.message || "Failed to login. Please check your credentials.");
+      }
     }
   };
 
@@ -62,6 +89,28 @@ const Login = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {authError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{authError}</AlertDescription>
+                </Alert>
+              )}
+              
+              {isEmailNotConfirmed && (
+                <Alert className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
+                  <MailIcon className="h-4 w-4 mr-2" />
+                  <AlertDescription className="flex flex-col">
+                    <span>Email not confirmed. Please check your inbox for a confirmation link.</span>
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-amber-800 underline justify-start"
+                      onClick={handleResendConfirmation}
+                    >
+                      Resend confirmation email
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>

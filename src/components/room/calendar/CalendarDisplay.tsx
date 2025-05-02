@@ -27,8 +27,8 @@ const CalendarDisplay = ({
   // Custom day rendering to show booked dates with a different style
   const renderDay = (day: Date) => {
     const isBooked = isDateDisabled(day);
-    const isCheckIn = isSameDay(day, checkInDate);
-    const isCheckOut = isSameDay(day, checkOutDate);
+    const isCheckIn = checkIn ? isSameDay(day, checkInDate) : false;
+    const isCheckOut = checkOut ? isSameDay(day, checkOutDate) : false;
     const isHovered = hoveredDate ? isSameDay(day, hoveredDate) : false;
     const isToday = isSameDay(day, new Date());
     
@@ -36,7 +36,7 @@ const CalendarDisplay = ({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <motion.div
+            <div
               className={cn(
                 "w-full h-full flex items-center justify-center rounded-md transition-colors calendar-day-hover",
                 isBooked && "bg-gray-200 cursor-not-allowed",
@@ -45,36 +45,14 @@ const CalendarDisplay = ({
                 isHovered && !isBooked && !isCheckIn && !isCheckOut && "bg-hotel-accent/20",
                 isToday && !isCheckIn && !isCheckOut && "ring-2 ring-hotel-accent/50",
               )}
-              whileHover={{ scale: isBooked ? 1 : 1.1 }}
-              animate={{ 
-                scale: isCheckIn || isCheckOut ? [1, 1.1, 1] : 1,
-              }}
-              transition={{ 
-                duration: 0.3,
-                scale: {
-                  type: "spring", 
-                  stiffness: 300, 
-                  damping: 15,
-                }
-              }}
               onMouseEnter={() => setHoveredDate(day)}
               onMouseLeave={() => setHoveredDate(null)}
             >
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {day.getDate()}
-              </motion.span>
+              <span>{day.getDate()}</span>
               {isBooked && (
-                <motion.div 
-                  className="absolute bottom-0 right-0 w-2 h-2 bg-gray-400 rounded-full"
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ repeat: isHovered ? Infinity : 0, duration: 1 }}
-                />
+                <div className="absolute bottom-0 right-0 w-2 h-2 bg-gray-400 rounded-full" />
               )}
-            </motion.div>
+            </div>
           </TooltipTrigger>
           <TooltipContent>
             {isCheckIn && "Check-in date"}
