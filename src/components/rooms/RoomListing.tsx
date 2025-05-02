@@ -4,13 +4,71 @@ import { Button } from "@/components/ui/button";
 import { Room } from "@/types";
 import RoomCard from "@/components/RoomCard";
 import { motion } from "framer-motion";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface RoomListingProps {
   sortedRooms: Room[];
+  currentRooms: Room[];
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
+  totalPages: number;
   clearFilters: () => void;
 }
 
-const RoomListing = ({ sortedRooms, clearFilters }: RoomListingProps) => {
+const RoomListing = ({ 
+  sortedRooms, 
+  currentRooms, 
+  currentPage, 
+  setCurrentPage, 
+  totalPages,
+  clearFilters 
+}: RoomListingProps) => {
+  
+  const handlePageClick = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+    // Scroll to top when changing pages
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const renderPaginationItems = () => {
+    const items = [];
+    
+    // Calculate range of pages to show
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+    
+    // Adjust start page if we're near the end
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink
+            isActive={currentPage === i}
+            onClick={() => handlePageClick(i)}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+    
+    return items;
+  };
+
   return (
     <div className="lg:col-span-3">
       <motion.div 
@@ -25,23 +83,56 @@ const RoomListing = ({ sortedRooms, clearFilters }: RoomListingProps) => {
       </motion.div>
       
       {sortedRooms.length > 0 ? (
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, staggerChildren: 0.1 }}
-        >
-          {sortedRooms.map((room, index) => (
-            <motion.div
-              key={room.id}
+        <>
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, staggerChildren: 0.1 }}
+          >
+            {currentRooms.map((room, index) => (
+              <motion.div
+                key={room.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <RoomCard room={room} />
+              </motion.div>
+            ))}
+          </motion.div>
+          
+          {totalPages > 1 && (
+            <motion.div 
+              className="mt-12"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
             >
-              <RoomCard room={room} />
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => currentPage > 1 ? handlePageClick(currentPage - 1) : null}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                      aria-disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+                  
+                  {renderPaginationItems()}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => currentPage < totalPages ? handlePageClick(currentPage + 1) : null}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                      aria-disabled={currentPage === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </motion.div>
-          ))}
-        </motion.div>
+          )}
+        </>
       ) : (
         <motion.div 
           className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-sm border dark:border-gray-700 text-center"

@@ -13,6 +13,10 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
   const [sortBy, setSortBy] = useState("recommended");
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [lastScrollPos, setLastScrollPos] = useState(0);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [roomsPerPage] = useState(6);
 
   // Track scroll position for filter visibility
   useEffect(() => {
@@ -50,10 +54,17 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
     }
   });
 
+  // Get current rooms for pagination
+  const indexOfLastRoom = currentPage * roomsPerPage;
+  const indexOfFirstRoom = indexOfLastRoom - roomsPerPage;
+  const currentRooms = sortedRooms.slice(indexOfFirstRoom, indexOfLastRoom);
+  const totalPages = Math.ceil(sortedRooms.length / roomsPerPage);
+
   const clearFilters = () => {
     setSearchTerm("");
     setPriceRange([0, 600]);
     setCapacity("");
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   return {
@@ -67,6 +78,10 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
     setSortBy,
     isFilterVisible,
     sortedRooms,
+    currentRooms,
+    currentPage,
+    setCurrentPage,
+    totalPages,
     clearFilters
   };
 };

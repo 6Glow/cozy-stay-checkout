@@ -20,6 +20,10 @@ const Rooms = () => {
     setSortBy,
     isFilterVisible,
     sortedRooms,
+    currentRooms,
+    currentPage,
+    setCurrentPage,
+    totalPages,
     clearFilters
   } = useRoomFiltering({ rooms });
 
@@ -45,6 +49,10 @@ const Rooms = () => {
           
           <RoomListing 
             sortedRooms={sortedRooms}
+            currentRooms={currentRooms}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
             clearFilters={clearFilters}
           />
         </div>
