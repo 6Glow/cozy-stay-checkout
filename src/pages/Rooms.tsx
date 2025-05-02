@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,49 +210,47 @@ const Rooms = () => {
               </h2>
             </motion.div>
             
-            <AnimatePresence>
-              {sortedRooms.length > 0 ? (
-                <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, staggerChildren: 0.1 }}
-                >
-                  {sortedRooms.map((room, index) => (
-                    <motion.div
-                      key={room.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: index * 0.1 }}
-                    >
-                      <RoomCard room={room} />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div 
-                  className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-sm border dark:border-gray-700 text-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <h3 className="text-lg font-medium mb-2 dark:text-white">No rooms found</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    Try adjusting your filters to find available rooms.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setPriceRange([0, 600]);
-                      setCapacity("");
-                    }}
-                    className="dark:bg-hotel-primary dark:text-white"
+            {sortedRooms.length > 0 ? (
+              <motion.div 
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, staggerChildren: 0.1 }}
+              >
+                {sortedRooms.map((room, index) => (
+                  <motion.div
+                    key={room.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
                   >
-                    Clear Filters
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    <RoomCard room={room} />
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div 
+                className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-sm border dark:border-gray-700 text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <h3 className="text-lg font-medium mb-2 dark:text-white">No rooms found</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  Try adjusting your filters to find available rooms.
+                </p>
+                <Button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setPriceRange([0, 600]);
+                    setCapacity("");
+                  }}
+                  className="dark:bg-hotel-primary dark:text-white"
+                >
+                  Clear Filters
+                </Button>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
