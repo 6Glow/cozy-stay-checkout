@@ -9,7 +9,7 @@ interface UseRoomFilteringProps {
 const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 600]);
-  const [capacity, setCapacity] = useState("");
+  const [capacity, setCapacity] = useState("any");
   const [sortBy, setSortBy] = useState("recommended");
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [lastScrollPos, setLastScrollPos] = useState(0);
@@ -36,7 +36,7 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
     const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           room.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPrice = room.price >= priceRange[0] && room.price <= priceRange[1];
-    const matchesCapacity = capacity ? room.capacity >= parseInt(capacity) : true;
+    const matchesCapacity = capacity === "any" ? true : room.capacity >= parseInt(capacity);
     
     return matchesSearch && matchesPrice && matchesCapacity;
   });
@@ -64,7 +64,7 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
   const clearFilters = () => {
     setSearchTerm("");
     setPriceRange([0, 600]);
-    setCapacity("");
+    setCapacity("any");
     setCurrentPage(1); // Reset to first page when filters change
   };
 
