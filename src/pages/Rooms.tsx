@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import RoomFilters from "@/components/rooms/RoomFilters";
 import RoomListing from "@/components/rooms/RoomListing";
 import RoomPageHeader from "@/components/rooms/RoomPageHeader";
+import ViewToggle from "@/components/rooms/ViewToggle";
 import useRoomFiltering from "@/hooks/useRoomFiltering";
 
 const Rooms = () => {
@@ -24,7 +25,9 @@ const Rooms = () => {
     currentPage,
     setCurrentPage,
     totalPages,
-    clearFilters
+    clearFilters,
+    viewMode,
+    setViewMode
   } = useRoomFiltering({ rooms });
 
   return (
@@ -34,6 +37,10 @@ const Rooms = () => {
       <RoomPageHeader />
       
       <div className="container mx-auto px-4 py-12">
+        <div className="flex justify-end mb-4">
+          <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <RoomFilters 
             searchTerm={searchTerm}
@@ -54,6 +61,7 @@ const Rooms = () => {
             setCurrentPage={setCurrentPage}
             totalPages={totalPages}
             clearFilters={clearFilters}
+            viewMode={viewMode}
           />
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import RoomListItem from "./RoomListItem";
 
 interface RoomListingProps {
   sortedRooms: Room[];
@@ -20,6 +21,7 @@ interface RoomListingProps {
   setCurrentPage: (page: number) => void;
   totalPages: number;
   clearFilters: () => void;
+  viewMode: "grid" | "list";
 }
 
 const RoomListing = ({ 
@@ -28,7 +30,8 @@ const RoomListing = ({
   currentPage, 
   setCurrentPage, 
   totalPages,
-  clearFilters 
+  clearFilters,
+  viewMode
 }: RoomListingProps) => {
   
   const handlePageClick = (pageNumber: number) => {
@@ -85,10 +88,14 @@ const RoomListing = ({
       {sortedRooms.length > 0 ? (
         <>
           <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
+            key={viewMode}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, staggerChildren: 0.1 }}
+            transition={{ duration: 0.3 }}
+            className={viewMode === "grid" 
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6" 
+              : "flex flex-col gap-4"
+            }
           >
             {currentRooms.map((room, index) => (
               <motion.div
@@ -97,7 +104,11 @@ const RoomListing = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <RoomCard room={room} />
+                {viewMode === "grid" ? (
+                  <RoomCard room={room} />
+                ) : (
+                  <RoomListItem room={room} />
+                )}
               </motion.div>
             ))}
           </motion.div>

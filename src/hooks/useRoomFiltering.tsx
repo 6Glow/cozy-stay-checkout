@@ -13,6 +13,7 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
   const [sortBy, setSortBy] = useState("recommended");
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [lastScrollPos, setLastScrollPos] = useState(0);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,7 +83,9 @@ const useRoomFiltering = ({ rooms }: UseRoomFilteringProps) => {
     currentPage,
     setCurrentPage,
     totalPages,
-    clearFilters
+    clearFilters,
+    viewMode,
+    setViewMode
   };
 };
 
