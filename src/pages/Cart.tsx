@@ -45,14 +45,23 @@ const Cart = () => {
       const grandTotal = totalPrice + taxes;
 
       // Get current session to ensure we have a fresh token
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw new Error("Failed to verify your session. Please log in again.");
+      }
+      
       if (!sessionData.session) {
         // If no valid session, redirect to login
         toast.error("Your session has expired. Please log in again.");
-        navigate("/login?error=" + encodeURIComponent("Your session has expired. Please log in again."));
+        navigate("/login?redirect=" + encodeURIComponent("/cart"));
         return;
       }
 
+      // Store the session access token to use for the function call
+      const accessToken = sessionData.session.access_token;
+      
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           amount: grandTotal,
@@ -62,6 +71,9 @@ const Cart = () => {
           items: itemsWithTotalPrice,
           userId: user.id
         },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
       });
 
       if (error) {
@@ -77,6 +89,7 @@ const Cart = () => {
           timestamp: new Date().toISOString()
         }));
         
+        // Open the checkout URL in a new tab or window
         window.location.href = data.checkoutUrl;
       } else {
         console.error("No checkout URL received:", data);
@@ -86,9 +99,14 @@ const Cart = () => {
       console.error('Payment error:', error);
       
       // Check if the error is related to authentication
-      if (error instanceof Error && error.message.includes("auth")) {
-        toast.error('Authentication error. Please log in again.');
-        navigate("/login?error=" + encodeURIComponent("Your session has expired. Please log in again."));
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      
+      if (errorMessage.toLowerCase().includes('session') || 
+          errorMessage.toLowerCase().includes('auth') || 
+          errorMessage.toLowerCase().includes('token') ||
+          errorMessage.toLowerCase().includes('expired')) {
+        toast.error('Your session has expired. Please log in again.');
+        navigate("/login?redirect=" + encodeURIComponent("/cart"));
       } else {
         setProcessingError('Failed to initiate payment. Please try again or contact support.');
         toast.error('Failed to initiate payment. Please try again.');
@@ -281,7 +299,7 @@ const Cart = () => {
               {!user && (
                 <Alert className="mt-4 bg-blue-50 text-blue-800 border-blue-100">
                   <AlertDescription>
-                    Please <Link to="/login" className="font-medium underline">login</Link> to checkout.
+                    Please <Link to="/login?redirect=/cart" className="font-medium underline">login</Link> to checkout.
                   </AlertDescription>
                 </Alert>
               )}

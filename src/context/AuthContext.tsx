@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log("Auth state changed:", event);
         if (session?.user) {
           const userData: User = {
@@ -52,10 +52,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setUser(userData);
           localStorage.setItem("user", JSON.stringify(userData));
           localStorage.setItem("sb-last-auth-time", new Date().toISOString());
-        } else {
+          
+          // If login event, show toast
+          if (event === 'SIGNED_IN') {
+            toast.success("Login successful!");
+          }
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           localStorage.removeItem("user");
+          localStorage.removeItem("sb-last-auth-time");
+          toast.success("You've been logged out successfully.");
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Do nothing special here, just log it
+          console.log("Auth token refreshed");
+        } else if (!session) {
+          setUser(null);
+          localStorage.removeItem("user");
+          localStorage.removeItem("sb-last-auth-time");
         }
+        
         setIsLoading(false);
       }
     );
@@ -63,7 +78,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // THEN check for existing session
     const checkSession = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error checking session:", error);
+          return;
+        }
         
         if (data.session?.user) {
           const userData: User = {
@@ -82,7 +102,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Check for stored user data as fallback
           const storedUser = localStorage.getItem("user");
           if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            // If we have a stored user but no active session, we need to refresh the token
+            // or clear the stored user
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              
+              if (refreshError || !refreshData.session) {
+                // If we can't refresh, clear the stored user
+                localStorage.removeItem("user");
+                setUser(null);
+              } else {
+                // If we successfully refreshed, update the user
+                const userData: User = {
+                  id: refreshData.session.user.id,
+                  email: refreshData.session.user.email || "",
+                  firstName: refreshData.session.user.user_metadata?.firstName || "",
+                  lastName: refreshData.session.user.user_metadata?.lastName || "",
+                  phone: refreshData.session.user.user_metadata?.phone || "",
+                  createdAt: refreshData.session.user.created_at,
+                };
+                
+                setUser(userData);
+                localStorage.setItem("user", JSON.stringify(userData));
+                localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+              }
+            } catch (e) {
+              console.error("Error refreshing session:", e);
+              localStorage.removeItem("user");
+              setUser(null);
+            }
           }
         }
         setIsLoading(false);
@@ -103,6 +151,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      // Clear stored data first to prevent using stale data
+      localStorage.removeItem("user");
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -126,7 +177,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
         localStorage.setItem("sb-last-auth-time", new Date().toISOString());
-        toast.success("Login successful!");
       }
     } catch (error: any) {
       console.error("Login error details:", error);
@@ -179,10 +229,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw error;
+      
+      // Clean up stored data
       setUser(null);
       localStorage.removeItem("user");
-      toast.success("You've been logged out successfully.");
+      localStorage.removeItem("sb-last-auth-time");
+      
       return Promise.resolve();
     } catch (error) {
       console.error("Error logging out:", error);
