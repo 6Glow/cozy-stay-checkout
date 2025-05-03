@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { MailIcon } from "lucide-react";
+import { MailIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const Login = () => {
@@ -18,9 +18,16 @@ const Login = () => {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [authError, setAuthError] = useState<string | null>(null);
   const [isEmailNotConfirmed, setIsEmailNotConfirmed] = useState(false);
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Clear errors when inputs change
+  useEffect(() => {
+    setErrors({});
+    setAuthError(null);
+  }, [email, password]);
 
   // Check for redirect parameters
   useEffect(() => {
@@ -56,6 +63,7 @@ const Login = () => {
 
   const handleResendConfirmation = async () => {
     try {
+      setIsResendingConfirmation(true);
       const { supabase } = await import("@/integrations/supabase/client");
       await supabase.auth.resend({
         type: 'signup',
@@ -66,6 +74,8 @@ const Login = () => {
     } catch (error) {
       console.error("Error sending confirmation email:", error);
       setAuthError("Failed to send confirmation email. Please try again.");
+    } finally {
+      setIsResendingConfirmation(false);
     }
   };
 
@@ -134,8 +144,16 @@ const Login = () => {
                       variant="link" 
                       className="p-0 h-auto text-amber-800 underline justify-start"
                       onClick={handleResendConfirmation}
+                      disabled={isResendingConfirmation}
                     >
-                      Resend confirmation email
+                      {isResendingConfirmation ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        "Resend confirmation email"
+                      )}
                     </Button>
                   </AlertDescription>
                 </Alert>
@@ -181,7 +199,14 @@ const Login = () => {
                   className="w-full bg-hotel-primary hover:bg-hotel-primary/90"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Signing in..." : "Sign in"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign in"
+                  )}
                 </Button>
               </form>
             </CardContent>
