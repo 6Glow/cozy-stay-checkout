@@ -21,7 +21,8 @@ const Cart = () => {
   const handleProceedToCheckout = async () => {
     if (!user) {
       toast.error("Please log in to proceed to checkout");
-      navigate("/login");
+      // Redirect to login with a parameter to indicate where the user came from
+      navigate("/login?from=checkout");
       return;
     }
     
@@ -43,6 +44,15 @@ const Cart = () => {
       const taxes = Math.round(totalPrice * 0.1);
       const grandTotal = totalPrice + taxes;
 
+      // Get current session to ensure we have a fresh token
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        // If no valid session, redirect to login
+        toast.error("Your session has expired. Please log in again.");
+        navigate("/login?error=" + encodeURIComponent("Your session has expired. Please log in again."));
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           amount: grandTotal,
@@ -60,6 +70,13 @@ const Cart = () => {
       }
       
       if (data?.checkoutUrl) {
+        // Store the cart items in local storage as a backup
+        localStorage.setItem("pendingBooking", JSON.stringify({
+          items: itemsWithTotalPrice,
+          userId: user.id,
+          timestamp: new Date().toISOString()
+        }));
+        
         window.location.href = data.checkoutUrl;
       } else {
         console.error("No checkout URL received:", data);
@@ -67,8 +84,15 @@ const Cart = () => {
       }
     } catch (error) {
       console.error('Payment error:', error);
-      setProcessingError('Failed to initiate payment. Please try again or contact support.');
-      toast.error('Failed to initiate payment. Please try again.');
+      
+      // Check if the error is related to authentication
+      if (error instanceof Error && error.message.includes("auth")) {
+        toast.error('Authentication error. Please log in again.');
+        navigate("/login?error=" + encodeURIComponent("Your session has expired. Please log in again."));
+      } else {
+        setProcessingError('Failed to initiate payment. Please try again or contact support.');
+        toast.error('Failed to initiate payment. Please try again.');
+      }
     } finally {
       setIsProcessing(false);
     }

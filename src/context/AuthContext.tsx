@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { toast } from "sonner";
@@ -38,7 +37,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log("Auth state changed:", event);
         if (session?.user) {
           const userData: User = {
             id: session.user.id,
@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           
           setUser(userData);
           localStorage.setItem("user", JSON.stringify(userData));
+          localStorage.setItem("sb-last-auth-time", new Date().toISOString());
         } else {
           setUser(null);
           localStorage.removeItem("user");
@@ -76,6 +77,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           
           setUser(userData);
           localStorage.setItem("user", JSON.stringify(userData));
+          localStorage.setItem("sb-last-auth-time", new Date().toISOString());
         } else {
           // Check for stored user data as fallback
           const storedUser = localStorage.getItem("user");
@@ -106,7 +108,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Login error:", error);
+        throw error;
+      }
       
       if (data.user) {
         const userData: User = {
@@ -120,10 +125,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("sb-last-auth-time", new Date().toISOString());
         toast.success("Login successful!");
       }
     } catch (error: any) {
-      toast.error(error.message || "Login failed. Please check your credentials.");
+      console.error("Login error details:", error);
+      
+      // More detailed error handling
+      if (error.message?.includes("email") && error.message?.includes("not confirmed")) {
+        error.code = "email_not_confirmed";
+        toast.error("Email not confirmed. Please check your inbox for the confirmation link.");
+      } else if (error.message?.includes("Invalid login")) {
+        toast.error("Invalid email or password. Please check your credentials and try again.");
+      } else {
+        toast.error(error.message || "Login failed. Please check your credentials.");
+      }
+      
       throw error;
     } finally {
       setIsLoading(false);

@@ -21,14 +21,14 @@ const CalendarDisplay = ({
 }: CalendarDisplayProps) => {
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   
-  const checkInDate = new Date(checkIn);
-  const checkOutDate = new Date(checkOut);
+  const checkInDate = checkIn ? new Date(checkIn) : undefined;
+  const checkOutDate = checkOut ? new Date(checkOut) : undefined;
   
   // Custom day rendering to show booked dates with a different style
   const renderDay = (day: Date) => {
     const isBooked = isDateDisabled(day);
-    const isCheckIn = checkIn ? isSameDay(day, checkInDate) : false;
-    const isCheckOut = checkOut ? isSameDay(day, checkOutDate) : false;
+    const isCheckIn = checkInDate ? isSameDay(day, checkInDate) : false;
+    const isCheckOut = checkOutDate ? isSameDay(day, checkOutDate) : false;
     const isHovered = hoveredDate ? isSameDay(day, hoveredDate) : false;
     const isToday = isSameDay(day, new Date());
     
@@ -74,10 +74,10 @@ const CalendarDisplay = ({
     >
       <Calendar
         mode="range"
-        selected={{
+        selected={checkIn && checkOut ? {
           from: new Date(checkIn),
           to: new Date(checkOut),
-        }}
+        } : undefined}
         onSelect={(range) => {
           if (range?.from) {
             onSelect({

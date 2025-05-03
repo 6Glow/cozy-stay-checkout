@@ -1,6 +1,6 @@
 
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { MailIcon } from "lucide-react";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -19,6 +20,22 @@ const Login = () => {
   const [isEmailNotConfirmed, setIsEmailNotConfirmed] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for redirect parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const redirectFrom = params.get('from');
+    const errorMsg = params.get('error');
+    
+    if (errorMsg) {
+      setAuthError(decodeURIComponent(errorMsg));
+    }
+    
+    if (redirectFrom === 'checkout') {
+      setAuthError("You need to be logged in to complete your purchase. Please log in and try again.");
+    }
+  }, [location]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -44,6 +61,7 @@ const Login = () => {
         type: 'signup',
         email
       });
+      toast.success("Confirmation email sent. Please check your inbox.");
       setAuthError("Confirmation email sent. Please check your inbox.");
     } catch (error) {
       console.error("Error sending confirmation email:", error);
@@ -63,12 +81,24 @@ const Login = () => {
     
     try {
       await login(email, password);
-      navigate("/");
+      
+      // Check if there's a redirect URL in the query params
+      const params = new URLSearchParams(location.search);
+      const redirectUrl = params.get('redirect');
+      
+      if (redirectUrl) {
+        // Decode the URL to handle any encoded characters
+        navigate(decodeURIComponent(redirectUrl));
+      } else {
+        navigate("/");
+      }
     } catch (error: any) {
       console.error("Login error:", error);
       
-      if (error?.message === "Email not confirmed" || error?.code === "email_not_confirmed") {
+      if (error?.message?.includes("Email not confirmed") || error?.code === "email_not_confirmed") {
         setIsEmailNotConfirmed(true);
+      } else if (error?.message?.includes("Invalid login credentials")) {
+        setAuthError("Invalid email or password. Please check your credentials and try again.");
       } else {
         setAuthError(error?.message || "Failed to login. Please check your credentials.");
       }
