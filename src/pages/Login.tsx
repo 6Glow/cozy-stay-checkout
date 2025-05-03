@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -79,6 +78,7 @@ const Login = () => {
     }
   };
 
+  // Modify handleSubmit to handle redirect back to cart
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -92,14 +92,24 @@ const Login = () => {
     try {
       await login(email, password);
       
-      // Check if there's a redirect URL in the query params
+      // Check for a redirect URL in the query params or localStorage
       const params = new URLSearchParams(location.search);
       const redirectUrl = params.get('redirect');
+      const storedRedirect = localStorage.getItem("checkoutRedirect");
       
-      if (redirectUrl) {
-        // Decode the URL to handle any encoded characters
+      // Clear the stored redirect
+      localStorage.removeItem("checkoutRedirect");
+      
+      // First priority: checkout redirect from localStorage
+      if (storedRedirect) {
+        navigate(storedRedirect);
+      } 
+      // Second priority: URL parameter redirect
+      else if (redirectUrl) {
         navigate(decodeURIComponent(redirectUrl));
-      } else {
+      } 
+      // Default redirect to home
+      else {
         navigate("/");
       }
     } catch (error: any) {

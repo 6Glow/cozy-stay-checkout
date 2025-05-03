@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { toast } from "sonner";
@@ -103,15 +104,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const storedUser = localStorage.getItem("user");
           if (storedUser) {
             // If we have a stored user but no active session, we need to refresh the token
-            // or clear the stored user
             try {
               const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
               
               if (refreshError || !refreshData.session) {
                 // If we can't refresh, clear the stored user
+                console.log("Session refresh failed, clearing stored user");
                 localStorage.removeItem("user");
                 setUser(null);
               } else {
+                console.log("Session refreshed successfully");
                 // If we successfully refreshed, update the user
                 const userData: User = {
                   id: refreshData.session.user.id,
@@ -142,9 +144,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     checkSession();
     
-    // Clean up subscription
+    // Set up session refresh interval (every 10 minutes)
+    const refreshInterval = setInterval(async () => {
+      console.log("Refreshing session token...");
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.error("Error refreshing session:", error);
+        } else if (data.session) {
+          console.log("Session refreshed successfully");
+          // Session refreshed, no need to update user since onAuthStateChange will handle it
+        }
+      } catch (error) {
+        console.error("Error in refresh interval:", error);
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    // Clean up subscription and interval
     return () => {
       subscription.unsubscribe();
+      clearInterval(refreshInterval);
     };
   }, []);
 

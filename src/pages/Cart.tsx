@@ -1,6 +1,6 @@
 
-import React, { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -18,10 +18,27 @@ const Cart = () => {
   const [processingError, setProcessingError] = useState<string | null>(null);
   const navigate = useNavigate();
   
+  // Check for authenticated user on component mount
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          console.log("No active session detected in Cart");
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      }
+    };
+    
+    checkAuthStatus();
+  }, []);
+  
   const handleProceedToCheckout = async () => {
     if (!user) {
       toast.error("Please log in to proceed to checkout");
-      // Redirect to login with a parameter to indicate where the user came from
+      // Store the current path so we can redirect back after login
+      localStorage.setItem("checkoutRedirect", "/cart");
       navigate("/login?from=checkout");
       return;
     }
@@ -53,14 +70,25 @@ const Cart = () => {
       }
       
       if (!sessionData.session) {
-        // If no valid session, redirect to login
-        toast.error("Your session has expired. Please log in again.");
-        navigate("/login?redirect=" + encodeURIComponent("/cart"));
-        return;
+        // If no valid session, attempt to refresh the session first
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          console.error("Failed to refresh session:", refreshError);
+          // Store the current path so we can redirect back after login
+          localStorage.setItem("checkoutRedirect", "/cart");
+          toast.error("Your session has expired. Please log in again.");
+          navigate("/login?redirect=" + encodeURIComponent("/cart"));
+          return;
+        }
+        
+        // Use the refreshed session
+        sessionData.session = refreshData.session;
       }
 
       // Store the session access token to use for the function call
       const accessToken = sessionData.session.access_token;
+      console.log("Using access token:", accessToken ? "Token available" : "No token");
       
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
@@ -78,7 +106,51 @@ const Cart = () => {
 
       if (error) {
         console.error("Payment function error:", error);
-        throw error;
+        // If the error is related to authentication, attempt to refresh the token once more
+        if (error.message?.toLowerCase().includes('auth') || 
+            error.message?.toLowerCase().includes('token') ||
+            error.message?.toLowerCase().includes('unauthorized')) {
+          
+          const { data: refreshResult } = await supabase.auth.refreshSession();
+          if (refreshResult.session) {
+            toast.info("Retrying payment...");
+            // Retry the payment with the new token
+            const { data: retryData, error: retryError } = await supabase.functions.invoke('create-payment', {
+              body: {
+                amount: grandTotal,
+                orderId: `order-${Date.now()}`,
+                description: `Hotel Booking - ${items.length} room(s)`,
+                redirectUrl: `${window.location.origin}/checkout/success?clearCart=true`,
+                items: itemsWithTotalPrice,
+                userId: user.id
+              },
+              headers: {
+                Authorization: `Bearer ${refreshResult.session.access_token}`
+              }
+            });
+            
+            if (retryError) {
+              throw retryError;
+            }
+            
+            if (retryData?.checkoutUrl) {
+              // Store the cart items in local storage as a backup
+              localStorage.setItem("pendingBooking", JSON.stringify({
+                items: itemsWithTotalPrice,
+                userId: user.id,
+                timestamp: new Date().toISOString()
+              }));
+              
+              // Open the checkout URL directly
+              window.location.href = retryData.checkoutUrl;
+              return;
+            }
+          } else {
+            throw new Error('Session refresh failed. Please log in again.');
+          }
+        } else {
+          throw error;
+        }
       }
       
       if (data?.checkoutUrl) {
@@ -89,7 +161,7 @@ const Cart = () => {
           timestamp: new Date().toISOString()
         }));
         
-        // Open the checkout URL in a new tab or window
+        // Open the checkout URL directly
         window.location.href = data.checkoutUrl;
       } else {
         console.error("No checkout URL received:", data);
@@ -98,13 +170,14 @@ const Cart = () => {
     } catch (error) {
       console.error('Payment error:', error);
       
-      // Check if the error is related to authentication
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       
       if (errorMessage.toLowerCase().includes('session') || 
           errorMessage.toLowerCase().includes('auth') || 
           errorMessage.toLowerCase().includes('token') ||
           errorMessage.toLowerCase().includes('expired')) {
+        // Store current path before redirecting
+        localStorage.setItem("checkoutRedirect", "/cart");
         toast.error('Your session has expired. Please log in again.');
         navigate("/login?redirect=" + encodeURIComponent("/cart"));
       } else {
