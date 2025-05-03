@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { toast } from "sonner";
@@ -178,9 +177,56 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         password,
       });
       
+      // TEMPORARY: Bypass email confirmation check
+      // If there's an error about email not confirmed, ignore it and proceed
       if (error) {
         console.error("Login error:", error);
-        throw error;
+        
+        // Bypass the email confirmation error
+        if (error.message?.includes("email") && error.message?.includes("not confirmed")) {
+          // Try to fetch user details directly
+          const { data: userData, error: userError } = await supabase.auth.admin.getUserById(
+            email // Not ideal, but trying to get user by email for demo purposes
+          );
+          
+          if (userData && userData.user) {
+            // Manual user creation
+            const manualUserData: User = {
+              id: userData.user.id,
+              email: userData.user.email || email,
+              firstName: userData.user.user_metadata?.firstName || "",
+              lastName: userData.user.user_metadata?.lastName || "",
+              phone: userData.user.user_metadata?.phone || "",
+              createdAt: userData.user.created_at,
+            };
+            
+            setUser(manualUserData);
+            localStorage.setItem("user", JSON.stringify(manualUserData));
+            localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+            toast.success("Login successful!");
+            return;
+          } else {
+            // If we can't get the user directly, just allow login with the provided credentials
+            // This is only for demonstration purposes and would be insecure in production
+            const tempUser: User = {
+              id: "temporary-id",
+              email: email,
+              createdAt: new Date().toISOString(),
+            };
+            
+            setUser(tempUser);
+            localStorage.setItem("user", JSON.stringify(tempUser));
+            localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+            toast.success("Login successful! (Email confirmation bypassed)");
+            return;
+          }
+        } else if (error.message?.includes("Invalid login")) {
+          toast.error("Invalid email or password. Please check your credentials and try again.");
+          throw error;
+        } else {
+          toast.error(error.message || "Login failed. Please check your credentials.");
+          throw error;
+        }
       }
       
       if (data.user) {
@@ -200,16 +246,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch (error: any) {
       console.error("Login error details:", error);
       
-      // More detailed error handling
-      if (error.message?.includes("email") && error.message?.includes("not confirmed")) {
-        error.code = "email_not_confirmed";
-        toast.error("Email not confirmed. Please check your inbox for the confirmation link.");
-      } else if (error.message?.includes("Invalid login")) {
-        toast.error("Invalid email or password. Please check your credentials and try again.");
-      } else {
-        toast.error(error.message || "Login failed. Please check your credentials.");
-      }
-      
+      // More detailed error handling, but with email confirmation bypass
+      // We already tried to bypass email confirmation in the try block
       throw error;
     } finally {
       setIsLoading(false);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,8 @@ const Login = () => {
     }
     
     setAuthError(null);
-    setIsEmailNotConfirmed(false);
+    // TEMPORARILY DISABLED: We're bypassing email confirmation
+    // setIsEmailNotConfirmed(false);
     
     try {
       await login(email, password);
@@ -115,9 +117,13 @@ const Login = () => {
     } catch (error: any) {
       console.error("Login error:", error);
       
+      // TEMPORARILY DISABLED: We're bypassing email confirmation check
+      /*
       if (error?.message?.includes("Email not confirmed") || error?.code === "email_not_confirmed") {
         setIsEmailNotConfirmed(true);
-      } else if (error?.message?.includes("Invalid login credentials")) {
+      } else 
+      */
+      if (error?.message?.includes("Invalid login credentials")) {
         setAuthError("Invalid email or password. Please check your credentials and try again.");
       } else {
         setAuthError(error?.message || "Failed to login. Please check your credentials.");
@@ -145,7 +151,8 @@ const Login = () => {
                 </Alert>
               )}
               
-              {isEmailNotConfirmed && (
+              {/* TEMPORARILY COMMENTED OUT: Email confirmation warning */}
+              {/* isEmailNotConfirmed && (
                 <Alert className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
                   <MailIcon className="h-4 w-4 mr-2" />
                   <AlertDescription className="flex flex-col">
@@ -167,7 +174,7 @@ const Login = () => {
                     </Button>
                   </AlertDescription>
                 </Alert>
-              )}
+              ) */}
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
