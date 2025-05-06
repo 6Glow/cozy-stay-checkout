@@ -11,7 +11,7 @@ import {
   updateUserProfile, 
   deleteUserAccount 
 } from "./operations";
-import { handleAuthStateChange, checkSession } from "./sessionUtils";
+import { handleAuthStateChange, checkSession } from "./session";
 
 interface AuthProviderProps {
   children: ReactNode;
