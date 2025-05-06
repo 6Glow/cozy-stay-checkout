@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +10,7 @@ import {
   resetUserPassword, 
   updateUserProfile, 
   deleteUserAccount 
-} from "./authOperations";
+} from "./operations";
 import { handleAuthStateChange, checkSession } from "./sessionUtils";
 
 interface AuthProviderProps {
