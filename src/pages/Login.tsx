@@ -15,7 +15,6 @@ const Login = () => {
     const params = new URLSearchParams(location.search);
     const redirectFrom = params.get('from');
     const errorMsg = params.get('error');
-    const redirectUrl = params.get('redirect');
     
     if (errorMsg) {
       setAuthError(decodeURIComponent(errorMsg));
