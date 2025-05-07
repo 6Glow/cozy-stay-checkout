@@ -37,9 +37,13 @@ const Cart = () => {
   const handleProceedToCheckout = async () => {
     if (!user) {
       toast.error("Please log in to proceed to checkout");
-      // Store the current path so we can redirect back after login
       localStorage.setItem("checkoutRedirect", "/cart");
       navigate("/login?from=checkout");
+      return;
+    }
+    
+    if (items.length === 0) {
+      toast.error("Your cart is empty");
       return;
     }
     
@@ -70,23 +74,19 @@ const Cart = () => {
       }
       
       if (!sessionData.session) {
-        // If no valid session, attempt to refresh the session first
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError || !refreshData.session) {
           console.error("Failed to refresh session:", refreshError);
-          // Store the current path so we can redirect back after login
           localStorage.setItem("checkoutRedirect", "/cart");
           toast.error("Your session has expired. Please log in again.");
           navigate("/login?redirect=" + encodeURIComponent("/cart"));
           return;
         }
         
-        // Use the refreshed session
         sessionData.session = refreshData.session;
       }
 
-      // Store the session access token to use for the function call
       const accessToken = sessionData.session.access_token;
       console.log("Using access token:", accessToken ? "Token available" : "No token");
       
@@ -106,15 +106,17 @@ const Cart = () => {
 
       if (error) {
         console.error("Payment function error:", error);
-        // If the error is related to authentication, attempt to refresh the token once more
+        
+        // Check if the error is related to authentication
         if (error.message?.toLowerCase().includes('auth') || 
             error.message?.toLowerCase().includes('token') ||
             error.message?.toLowerCase().includes('unauthorized')) {
           
+          // Try refreshing token one more time
           const { data: refreshResult } = await supabase.auth.refreshSession();
           if (refreshResult.session) {
             toast.info("Retrying payment...");
-            // Retry the payment with the new token
+            
             const { data: retryData, error: retryError } = await supabase.functions.invoke('create-payment', {
               body: {
                 amount: grandTotal,
@@ -176,7 +178,6 @@ const Cart = () => {
           errorMessage.toLowerCase().includes('auth') || 
           errorMessage.toLowerCase().includes('token') ||
           errorMessage.toLowerCase().includes('expired')) {
-        // Store current path before redirecting
         localStorage.setItem("checkoutRedirect", "/cart");
         toast.error('Your session has expired. Please log in again.');
         navigate("/login?redirect=" + encodeURIComponent("/cart"));

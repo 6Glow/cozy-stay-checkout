@@ -1,231 +1,170 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useAuth } from "@/context/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useAuth } from "@/context/AuthContext";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Eye, EyeOff } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface LoginFormProps {
   redirectUrl?: string | null;
-  authError: string | null;
-  setAuthError: (error: string | null) => void;
+  authError?: string | null;
+  setAuthError?: (error: string | null) => void;
 }
 
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
 const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true); // Default to true
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const { login, isLoading } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-
-  // Try to populate email from localStorage if available
-  useEffect(() => {
-    const storedCreds = localStorage.getItem("auth_credentials");
-    if (storedCreds) {
-      try {
-        const parsedCreds = JSON.parse(storedCreds);
-        if (parsedCreds.email) {
-          setEmail(parsedCreds.email);
-          // Don't set the password for security reasons
-        }
-      } catch (e) {
-        console.error("Error parsing stored credentials:", e);
-      }
-    }
-  }, []);
-
-  // Clear errors when inputs change
-  useEffect(() => {
-    setErrors({});
-    setAuthError(null);
-  }, [email, password, setAuthError]);
-
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    if (!email) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = "Email is invalid";
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+  });
+  
+  const onSubmit = async (formData: any) => {
+    if (authError && setAuthError) {
+      setAuthError(null);
     }
     
-    if (!password) {
-      newErrors.password = "Password is required";
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    setAuthError(null);
+    setIsLoading(true);
     
     try {
-      await login(email, password);
+      const success = await login(formData.email, formData.password, rememberMe);
       
-      // Store credentials securely if remember me is checked
-      if (rememberMe) {
-        // Store in secure way but for now this works
-        localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+      if (success) {
+        const checkoutRedirect = localStorage.getItem("checkoutRedirect");
+        
+        if (checkoutRedirect) {
+          localStorage.removeItem("checkoutRedirect");
+          navigate(checkoutRedirect);
+        } else if (redirectUrl) {
+          navigate(redirectUrl);
+        } else {
+          navigate("/");
+        }
       } else {
-        localStorage.removeItem("auth_credentials");
+        setIsLoading(false);
       }
-      
-      // Check for a redirect URL in the query params or localStorage
-      const storedRedirect = localStorage.getItem("checkoutRedirect");
-      
-      // Clear the stored redirect
-      localStorage.removeItem("checkoutRedirect");
-      
-      // First priority: checkout redirect from localStorage
-      if (storedRedirect) {
-        navigate(storedRedirect);
-      } 
-      // Second priority: URL parameter redirect
-      else if (redirectUrl) {
-        navigate(decodeURIComponent(redirectUrl));
-      } 
-      // Default redirect to home
-      else {
-        navigate("/");
-      }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      
-      if (error?.message?.includes("Invalid login credentials")) {
-        setAuthError("Invalid email or password. Please check your credentials and try again.");
-      } else {
-        setAuthError(error?.message || "Failed to login. Please check your credentials.");
-      }
+    } catch (error) {
+      console.error("Login form error:", error);
+      setIsLoading(false);
     }
   };
-
-  // Auto-submit if we have both email and password and they're both coming from localStorage
-  useEffect(() => {
-    const storedCreds = localStorage.getItem("auth_credentials");
-    if (storedCreds && !isLoading) {
-      try {
-        const parsedCreds = JSON.parse(storedCreds);
-        if (parsedCreds.email && parsedCreds.password && email === parsedCreds.email) {
-          setPassword(parsedCreds.password);
-          // Set a small delay to ensure the form updates before submission
-          const timer = setTimeout(() => {
-            login(parsedCreds.email, parsedCreds.password)
-              .then(() => {
-                const storedRedirect = localStorage.getItem("checkoutRedirect");
-                localStorage.removeItem("checkoutRedirect");
-                
-                if (storedRedirect) {
-                  navigate(storedRedirect);
-                } else if (redirectUrl) {
-                  navigate(decodeURIComponent(redirectUrl));
-                } else {
-                  navigate("/");
-                }
-              })
-              .catch((err) => {
-                console.error("Auto-login error:", err);
-                // Don't show error for auto-login attempt
-              });
-          }, 500);
-          return () => clearTimeout(timer);
-        }
-      } catch (e) {
-        console.error("Error in auto-login:", e);
-      }
-    }
-  }, [email, login, navigate, redirectUrl, isLoading]);
-
+  
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+  
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {authError && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{authError}</AlertDescription>
-        </Alert>
-      )}
-      
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="your@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          className="focus:border-hotel-primary"
-        />
-        {errors.email && (
-          <p className="text-sm text-red-500">{errors.email}</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password">Password</Label>
-        </div>
-        <div className="relative">
-          <Input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            className="focus:border-hotel-primary pr-10"
-          />
-          <button 
-            type="button"
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            onClick={() => setShowPassword(!showPassword)}
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Card className="border-none shadow-none">
+        <CardContent className="p-0 space-y-4">
+          {authError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+              {authError}
+            </div>
+          )}
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              {...register("email")}
+            />
+            {errors.email && (
+              <p className="text-red-500 text-sm">{errors.email.message as string}</p>
+            )}
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="password">Password</Label>
+            </div>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                {...register("password")}
+              />
+              <Button 
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={toggleShowPassword}
+                className="absolute right-0 top-0 h-full px-3"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {errors.password && (
+              <p className="text-red-500 text-sm">{errors.password.message as string}</p>
+            )}
+          </div>
+          
+          <div className="flex items-center space-x-2 mt-4">
+            <Checkbox 
+              id="rememberMe" 
+              checked={rememberMe}
+              onCheckedChange={(checked) => setRememberMe(checked as boolean)} 
+            />
+            <label
+              htmlFor="rememberMe"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Remember me
+            </label>
+          </div>
+          
+          <Button
+            type="submit"
+            className="w-full bg-hotel-primary hover:bg-hotel-primary/90 mt-6"
+            disabled={isLoading}
           >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
-        {errors.password && (
-          <p className="text-sm text-red-500">{errors.password}</p>
-        )}
-      </div>
-      
-      <div className="flex items-center">
-        <input
-          id="remember-me"
-          name="remember-me"
-          type="checkbox"
-          checked={rememberMe}
-          onChange={(e) => setRememberMe(e.target.checked)}
-          className="h-4 w-4 text-hotel-primary focus:ring-hotel-primary border-gray-300 rounded"
-        />
-        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-          Remember me
-        </label>
-      </div>
-      
-      <Button
-        type="submit"
-        className="w-full bg-hotel-primary hover:bg-hotel-primary/90"
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Signing in...
-          </>
-        ) : (
-          "Sign in"
-        )}
-      </Button>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </div>
+            ) : (
+              "Sign in"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </form>
   );
 };

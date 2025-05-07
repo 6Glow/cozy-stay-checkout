@@ -37,12 +37,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           if (data.user && !error) {
             console.log("Auto-login successful");
             // Session will be set by the auth state listener
+          } else if (error) {
+            console.error("Auto-login failed:", error.message);
+            // If auto-login fails, clear stored credentials to prevent future failed attempts
+            if (error.message?.includes("Invalid login credentials")) {
+              localStorage.removeItem("auth_credentials");
+            }
           }
         }
       }
     } catch (error) {
       console.error("Auto-login error:", error);
-      // Don't show any errors for background auto-login
     }
   };
 
@@ -70,7 +75,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     initializeSession();
     
-    // Set up session refresh interval (every 2 minutes)
+    // Set up session refresh interval (every 1 minute to ensure freshness)
     const refreshInterval = setInterval(async () => {
       console.log("Refreshing session token...");
       try {
@@ -87,7 +92,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } catch (error) {
         console.error("Error in refresh interval:", error);
       }
-    }, 2 * 60 * 1000); // 2 minutes
+    }, 60 * 1000); // 1 minute
     
     // Clean up subscription and interval
     return () => {
@@ -96,8 +101,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
-    return loginUser(email, password, setUser, setIsLoading);
+  const login = async (email: string, password: string, rememberMe: boolean = true) => {
+    const result = await loginUser(email, password, setUser, setIsLoading, rememberMe);
+    return result;
   };
 
   const register = async (email: string, password: string) => {
@@ -105,8 +111,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async (): Promise<void> => {
-    // Keep auth credentials on logout for easy re-login
-    // localStorage.removeItem("auth_credentials");
+    // Keep auth credentials on logout for easy re-login if rememberMe was true
+    // Otherwise clear them
+    if (localStorage.getItem("rememberMe") !== "true") {
+      localStorage.removeItem("auth_credentials");
+    }
     return logoutUser(setUser, setIsLoading);
   };
 
@@ -125,6 +134,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const deleteAccount = async () => {
     // Clear auth credentials on account deletion
     localStorage.removeItem("auth_credentials");
+    localStorage.removeItem("rememberMe");
     return deleteUserAccount(user?.id, setUser, setIsLoading);
   };
 

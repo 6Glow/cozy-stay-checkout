@@ -31,10 +31,19 @@ serve(async (req) => {
       throw new Error("User ID is required to create a booking");
     }
 
+    // Validate items
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      throw new Error("No items provided for booking");
+    }
+
     console.log("Creating payment with user ID:", userId);
     
     // Create webhook URL for this payment
     const webhookUrl = `${supabaseUrl}/functions/v1/mollie-webhook`;
+
+    // Create payment description with dates and room names
+    const roomNames = items.map(item => item.room.name).join(', ');
+    const enhancedDescription = `Booking for ${roomNames} - ${description || 'Room reservation'}`;
 
     // Create payment in Mollie
     const payment = await mollieClient.payments.create({
@@ -42,11 +51,18 @@ serve(async (req) => {
         currency: 'EUR',
         value: amount.toFixed(2) // Mollie expects string amount like "10.00"
       },
-      description,
+      description: enhancedDescription,
       redirectUrl,
       webhookUrl,
-      metadata: { orderId, userId }
+      metadata: { orderId, userId, items: JSON.stringify(items.map(item => ({ 
+        roomId: item.room.id,
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
+        guests: item.guests
+      }))) }
     });
+
+    console.log("Payment created successfully:", payment.id);
 
     // Create booking records for each room in the order
     for (const item of items) {
@@ -67,10 +83,12 @@ serve(async (req) => {
       
       if (bookingError) {
         console.error('Failed to create booking:', bookingError);
+        // We'll continue even if there's an error, so the user can still make payment
+        // Webhook will handle updating the booking status
+      } else {
+        console.log(`Created booking for room ${item.room.id}`);
       }
     }
-
-    console.log("Payment created successfully:", payment.id);
 
     return new Response(
       JSON.stringify({

@@ -72,6 +72,12 @@ serve(async (req) => {
       console.error("Error updating booking:", error);
       throw error;
     }
+
+    // If payment is paid, send confirmation email (can be implemented later)
+    if (payment.status === 'paid') {
+      console.log(`Payment ${paymentId} is now paid. Sending confirmation email would happen here.`);
+      // Future enhancement: send confirmation email
+    }
     
     console.log(`Successfully updated booking status to: ${payment.status}`);
     
