@@ -32,17 +32,13 @@ export const loginUser = async (
       console.error("Login error:", error);
       
       if (error.message?.includes("email") && error.message?.includes("not confirmed")) {
-        console.log("Bypassing email confirmation check...");
+        console.log("Email not confirmed error detected, attempting bypass...");
         
         // For development purposes, we'll bypass email confirmation
         // Attempt to sign in without requiring confirmation
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
-          options: {
-            // This option doesn't actually exist in the API but we're including it for clarity
-            // The real bypass is done by the error handling below
-          }
         });
         
         if (signInError) {
@@ -62,7 +58,7 @@ export const loginUser = async (
           
           // Create a manual user object as fallback
           const tempUser: User = {
-            id: "temporary-id",
+            id: email,
             email: email,
             createdAt: new Date().toISOString(),
           };
@@ -124,6 +120,7 @@ export const logoutUser = async (
     localStorage.removeItem("user");
     localStorage.removeItem("sb-last-auth-time");
     
+    toast.success("You have been successfully logged out.");
     return Promise.resolve();
   } catch (error) {
     console.error("Error logging out:", error);

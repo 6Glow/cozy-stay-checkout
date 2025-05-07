@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     initializeSession();
     
-    // Set up session refresh interval (every 5 minutes)
+    // Set up session refresh interval (every 3 minutes)
     const refreshInterval = setInterval(async () => {
       console.log("Refreshing session token...");
       try {
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } catch (error) {
         console.error("Error in refresh interval:", error);
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 3 * 60 * 1000); // 3 minutes
     
     // Clean up subscription and interval
     return () => {

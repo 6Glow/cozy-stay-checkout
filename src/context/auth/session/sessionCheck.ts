@@ -21,8 +21,8 @@ export const checkSession = async (): Promise<{
       const now = new Date();
       const minutesSinceLastAuth = (now.getTime() - lastAuth.getTime()) / (1000 * 60);
       
-      // If authenticated in the last 5 minutes, use stored data for better UX
-      if (minutesSinceLastAuth < 5) {
+      // If authenticated in the last 2 minutes, use stored data for better UX
+      if (minutesSinceLastAuth < 2) {
         return { user: JSON.parse(storedUser), success: true };
       }
     }
@@ -39,6 +39,7 @@ export const checkSession = async (): Promise<{
     if (data.session?.user) {
       const userData = mapSupabaseUserToUser(data.session.user);
       
+      // Update last auth time and store user data
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("sb-last-auth-time", new Date().toISOString());
       
