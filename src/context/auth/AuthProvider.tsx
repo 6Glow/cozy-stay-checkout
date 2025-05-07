@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,12 +35,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // THEN check for existing session
     const initializeSession = async () => {
       const sessionResult = await checkSession();
+      if (sessionResult.user) {
+        setUser(sessionResult.user);
+      }
       setIsLoading(false);
     };
 
     initializeSession();
     
-    // Set up session refresh interval (every 10 minutes)
+    // Set up session refresh interval (every 5 minutes)
     const refreshInterval = setInterval(async () => {
       console.log("Refreshing session token...");
       try {
@@ -48,12 +52,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.error("Error refreshing session:", error);
         } else if (data.session) {
           console.log("Session refreshed successfully");
-          // Session refreshed, no need to update user since onAuthStateChange will handle it
+          // Update last auth time
+          localStorage.setItem("sb-last-auth-time", new Date().toISOString());
         }
       } catch (error) {
         console.error("Error in refresh interval:", error);
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 5 * 60 * 1000); // 5 minutes
     
     // Clean up subscription and interval
     return () => {
@@ -71,6 +76,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async (): Promise<void> => {
+    // Clear auth credentials on logout
+    localStorage.removeItem("auth_credentials");
     return logoutUser(setUser, setIsLoading);
   };
 
@@ -87,6 +94,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const deleteAccount = async () => {
+    // Clear auth credentials on account deletion
+    localStorage.removeItem("auth_credentials");
     return deleteUserAccount(user?.id, setUser, setIsLoading);
   };
 

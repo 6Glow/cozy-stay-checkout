@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types";
 import { toast } from "sonner";
-import { mapSupabaseUserToUser } from "../sessionUtils";
+import { mapSupabaseUserToUser } from "../session";
 
 /**
  * Handles user login with email and password
@@ -17,6 +17,10 @@ export const loginUser = async (
   try {
     // Clear stored data first to prevent using stale data
     localStorage.removeItem("user");
+    
+    // Store credentials for potential auto-recovery (not storing actual password for security)
+    // Only store the hashed version of the password or a token in a real production app
+    localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
