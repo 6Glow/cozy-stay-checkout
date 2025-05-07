@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types";
 import { toast } from "sonner";
-import { mapSupabaseUserToUser } from "../session";
+import { mapSupabaseUserToUser } from "./session/mappers";
 
 /**
  * Handles user registration with email and password
