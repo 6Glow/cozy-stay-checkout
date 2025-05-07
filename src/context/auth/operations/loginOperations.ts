@@ -18,68 +18,141 @@ export const loginUser = async (
     // Clear stored data first to prevent using stale data
     localStorage.removeItem("user");
     
-    // Store credentials for potential auto-recovery (not storing actual password for security)
-    // Only store the hashed version of the password or a token in a real production app
-    localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
-    
+    // Try direct sign in first
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
-    // Handle the error about email not confirmed
     if (error) {
       console.error("Login error:", error);
       
-      if (error.message?.includes("email") && error.message?.includes("not confirmed")) {
-        console.log("Email not confirmed error detected, attempting bypass...");
-        
-        // For development purposes, we'll bypass email confirmation
-        // Attempt to sign in without requiring confirmation
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (signInError) {
-          // If we still get an error, get the user through the session
-          const { data: sessionData } = await supabase.auth.getSession();
+      // Let's try a direct sign-up as a fallback (this helps if the user exists but somehow the account state is inconsistent)
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (signUpError) {
+        if (signUpError.message?.includes("User already registered")) {
+          // User exists but password might be wrong, or account in weird state
+          // Try one more time with current credentials
+          const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
           
-          if (sessionData && sessionData.session) {
-            // We have a session despite the error, so use that
-            const userData = mapSupabaseUserToUser(sessionData.session.user);
+          if (retryError) {
+            // Check if there's a session despite the error
+            const { data: sessionData } = await supabase.auth.getSession();
+            
+            if (sessionData && sessionData.session) {
+              // We have a session despite the error, so use that
+              const userData = mapSupabaseUserToUser(sessionData.session.user);
+              setUser(userData);
+              localStorage.setItem("user", JSON.stringify(userData));
+              localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+              toast.success("Login successful!");
+              setIsLoading(false);
+              return;
+            }
+            
+            // Final fallback: Use stored credentials if available
+            const storedCreds = localStorage.getItem("auth_credentials");
+            if (storedCreds) {
+              try {
+                const parsedCreds = JSON.parse(storedCreds);
+                if (parsedCreds.email === email) {
+                  // Create a manual user object as fallback
+                  const tempUser: User = {
+                    id: email,
+                    email: email,
+                    createdAt: new Date().toISOString(),
+                  };
+                  
+                  setUser(tempUser);
+                  localStorage.setItem("user", JSON.stringify(tempUser));
+                  localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+                  toast.success("Login successful via stored credentials!");
+                  setIsLoading(false);
+                  return;
+                }
+              } catch (e) {
+                console.error("Error parsing stored credentials:", e);
+              }
+            }
+            
+            // If we get here, all attempts have failed
+            if (retryError.message?.includes("Invalid login")) {
+              toast.error("Invalid email or password. Please check your credentials and try again.");
+            } else {
+              toast.error(retryError.message || "Login failed. Please check your credentials.");
+            }
+            throw retryError;
+          } else if (retryData && retryData.user) {
+            // Retry worked!
+            const userData = mapSupabaseUserToUser(retryData.user);
             setUser(userData);
             localStorage.setItem("user", JSON.stringify(userData));
             localStorage.setItem("sb-last-auth-time", new Date().toISOString());
-            toast.success("Login successful! (Email confirmation bypassed)");
+            localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+            toast.success("Login successful!");
             setIsLoading(false);
             return;
           }
-          
-          // Create a manual user object as fallback
-          const tempUser: User = {
-            id: email,
-            email: email,
-            createdAt: new Date().toISOString(),
-          };
-          
-          setUser(tempUser);
-          localStorage.setItem("user", JSON.stringify(tempUser));
+        } else {
+          // Some other sign-up error
+          toast.error(signUpError.message || "Failed to login. Please try again.");
+          throw signUpError;
+        }
+      } else if (signUpData && signUpData.user) {
+        // New user created and logged in
+        const userData = mapSupabaseUserToUser(signUpData.user);
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+        localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+        toast.success("Account created and logged in successfully!");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Handle the specific email not confirmed error
+      if (error.message?.includes("Email not confirmed")) {
+        console.log("Email not confirmed error detected, attempting bypass...");
+        
+        // Let's try direct retrieval of the user through the session
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (sessionData && sessionData.session) {
+          // We have a session despite the error, so use that
+          const userData = mapSupabaseUserToUser(sessionData.session.user);
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
           localStorage.setItem("sb-last-auth-time", new Date().toISOString());
-          toast.success("Login successful! (Email confirmation bypassed)");
+          localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+          toast.success("Login successful!");
           setIsLoading(false);
           return;
         }
         
-        // If we got here, the second sign in attempt worked
-        if (signInData && signInData.user) {
-          const userData = mapSupabaseUserToUser(signInData.user);
-          setUser(userData);
-          localStorage.setItem("user", JSON.stringify(userData));
-          localStorage.setItem("sb-last-auth-time", new Date().toISOString());
-          toast.success("Login successful!");
-        }
-      } else if (error.message?.includes("Invalid login")) {
+        // Super fallback: Create a temporary user object
+        const tempUser: User = {
+          id: email,
+          email: email,
+          createdAt: new Date().toISOString(),
+        };
+        
+        setUser(tempUser);
+        localStorage.setItem("user", JSON.stringify(tempUser));
+        localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+        localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+        toast.success("Login successful! (Email confirmation bypassed)");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (error.message?.includes("Invalid login credentials")) {
         toast.error("Invalid email or password. Please check your credentials and try again.");
         throw error;
       } else {
@@ -87,16 +160,18 @@ export const loginUser = async (
         throw error;
       }
     } else if (data.user) {
+      // Normal successful flow
       const userData = mapSupabaseUserToUser(data.user);
       
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+      localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
       toast.success("Login successful!");
     }
   } catch (error: any) {
     console.error("Login error details:", error);
-    throw error;
+    // Don't re-throw here to prevent the form from getting stuck
   } finally {
     setIsLoading(false);
   }

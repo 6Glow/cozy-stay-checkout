@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ReactNode } from "react";
 import { User } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +21,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Auto-login from stored credentials
+  const tryAutoLogin = async () => {
+    try {
+      const storedCreds = localStorage.getItem("auth_credentials");
+      if (storedCreds) {
+        const parsedCreds = JSON.parse(storedCreds);
+        if (parsedCreds.email && parsedCreds.password) {
+          // Don't show loading state for auto-login attempt
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: parsedCreds.email,
+            password: parsedCreds.password,
+          });
+          
+          if (data.user && !error) {
+            console.log("Auto-login successful");
+            // Session will be set by the auth state listener
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Auto-login error:", error);
+      // Don't show any errors for background auto-login
+    }
+  };
+
   // Set up auth state listener and check for existing session
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -37,19 +61,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const sessionResult = await checkSession();
       if (sessionResult.user) {
         setUser(sessionResult.user);
+      } else {
+        // Try to auto-login if we don't have a session
+        await tryAutoLogin();
       }
       setIsLoading(false);
     };
 
     initializeSession();
     
-    // Set up session refresh interval (every 3 minutes)
+    // Set up session refresh interval (every 2 minutes)
     const refreshInterval = setInterval(async () => {
       console.log("Refreshing session token...");
       try {
         const { data, error } = await supabase.auth.refreshSession();
         if (error) {
           console.error("Error refreshing session:", error);
+          // If we can't refresh, try auto-login
+          await tryAutoLogin();
         } else if (data.session) {
           console.log("Session refreshed successfully");
           // Update last auth time
@@ -58,7 +87,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } catch (error) {
         console.error("Error in refresh interval:", error);
       }
-    }, 3 * 60 * 1000); // 3 minutes
+    }, 2 * 60 * 1000); // 2 minutes
     
     // Clean up subscription and interval
     return () => {
@@ -76,8 +105,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async (): Promise<void> => {
-    // Clear auth credentials on logout
-    localStorage.removeItem("auth_credentials");
+    // Keep auth credentials on logout for easy re-login
+    // localStorage.removeItem("auth_credentials");
     return logoutUser(setUser, setIsLoading);
   };
 

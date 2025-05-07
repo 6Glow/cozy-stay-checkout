@@ -18,10 +18,26 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Default to true
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Try to populate email from localStorage if available
+  useEffect(() => {
+    const storedCreds = localStorage.getItem("auth_credentials");
+    if (storedCreds) {
+      try {
+        const parsedCreds = JSON.parse(storedCreds);
+        if (parsedCreds.email) {
+          setEmail(parsedCreds.email);
+          // Don't set the password for security reasons
+        }
+      } catch (e) {
+        console.error("Error parsing stored credentials:", e);
+      }
+    }
+  }, []);
 
   // Clear errors when inputs change
   useEffect(() => {
@@ -62,6 +78,8 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
       if (rememberMe) {
         // Store in secure way but for now this works
         localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+      } else {
+        localStorage.removeItem("auth_credentials");
       }
       
       // Check for a redirect URL in the query params or localStorage
@@ -92,6 +110,42 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
       }
     }
   };
+
+  // Auto-submit if we have both email and password and they're both coming from localStorage
+  useEffect(() => {
+    const storedCreds = localStorage.getItem("auth_credentials");
+    if (storedCreds && !isLoading) {
+      try {
+        const parsedCreds = JSON.parse(storedCreds);
+        if (parsedCreds.email && parsedCreds.password && email === parsedCreds.email) {
+          setPassword(parsedCreds.password);
+          // Set a small delay to ensure the form updates before submission
+          const timer = setTimeout(() => {
+            login(parsedCreds.email, parsedCreds.password)
+              .then(() => {
+                const storedRedirect = localStorage.getItem("checkoutRedirect");
+                localStorage.removeItem("checkoutRedirect");
+                
+                if (storedRedirect) {
+                  navigate(storedRedirect);
+                } else if (redirectUrl) {
+                  navigate(decodeURIComponent(redirectUrl));
+                } else {
+                  navigate("/");
+                }
+              })
+              .catch((err) => {
+                console.error("Auto-login error:", err);
+                // Don't show error for auto-login attempt
+              });
+          }, 500);
+          return () => clearTimeout(timer);
+        }
+      } catch (e) {
+        console.error("Error in auto-login:", e);
+      }
+    }
+  }, [email, login, navigate, redirectUrl, isLoading]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
