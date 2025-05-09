@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -66,9 +65,8 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
         } else {
           navigate("/");
         }
-      } else {
-        setIsLoading(false);
-      }
+      } 
+      setIsLoading(false);
     } catch (error) {
       console.error("Login form error:", error);
       setIsLoading(false);
