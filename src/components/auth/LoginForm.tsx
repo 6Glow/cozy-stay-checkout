@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -33,6 +34,7 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
   
@@ -49,6 +51,8 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
       setAuthError(null);
     }
     
+    // Clear any previous login errors
+    setLoginError(null);
     setIsLoading(true);
     
     try {
@@ -65,10 +69,14 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
         } else {
           navigate("/");
         }
-      } 
+      } else {
+        // If login wasn't successful, show a more visible error
+        setLoginError("Invalid email or password. Please check your credentials and try again.");
+      }
       setIsLoading(false);
     } catch (error) {
       console.error("Login form error:", error);
+      setLoginError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
@@ -81,9 +89,9 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-none shadow-none">
         <CardContent className="p-0 space-y-4">
-          {authError && (
+          {(authError || loginError) && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-              {authError}
+              {authError || loginError}
             </div>
           )}
           

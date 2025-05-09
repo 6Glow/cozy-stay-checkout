@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (storedCreds) {
         const parsedCreds = JSON.parse(storedCreds);
         if (parsedCreds.email && parsedCreds.password) {
+          console.log("Attempting auto-login...");
           // Don't show loading state for auto-login attempt
           const { data, error } = await supabase.auth.signInWithPassword({
             email: parsedCreds.email,
@@ -42,6 +43,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // If auto-login fails, clear stored credentials to prevent future failed attempts
             if (error.message?.includes("Invalid login credentials")) {
               localStorage.removeItem("auth_credentials");
+              localStorage.removeItem("rememberMe");
             }
           }
         }
@@ -75,7 +77,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     initializeSession();
     
-    // Set up session refresh interval (every 1 minute to ensure freshness)
+    // Set up session refresh interval (every 5 minutes to ensure freshness)
     const refreshInterval = setInterval(async () => {
       console.log("Refreshing session token...");
       try {
@@ -92,7 +94,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } catch (error) {
         console.error("Error in refresh interval:", error);
       }
-    }, 60 * 1000); // 1 minute
+    }, 5 * 60 * 1000); // 5 minutes
     
     // Clean up subscription and interval
     return () => {
@@ -102,8 +104,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const login = async (email: string, password: string, rememberMe: boolean = true) => {
-    const result = await loginUser(email, password, setUser, setIsLoading, rememberMe);
-    return result;
+    return await loginUser(email, password, setUser, setIsLoading, rememberMe);
   };
 
   const register = async (email: string, password: string) => {
@@ -115,6 +116,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Otherwise clear them
     if (localStorage.getItem("rememberMe") !== "true") {
       localStorage.removeItem("auth_credentials");
+      localStorage.removeItem("rememberMe");
     }
     return logoutUser(setUser, setIsLoading);
   };
