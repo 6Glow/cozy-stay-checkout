@@ -2,9 +2,10 @@
 import React from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { AlertCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Alert, AlertCircle, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import EmptyCart from "@/components/cart/EmptyCart";
 import CartList from "@/components/cart/CartList";
 import CartSummary from "@/components/cart/CartSummary";
