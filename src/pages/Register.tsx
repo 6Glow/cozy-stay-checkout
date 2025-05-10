@@ -88,7 +88,13 @@ const Register = () => {
       navigate("/");
     } catch (error: any) {
       console.error("Registration error:", error);
-      setGeneralError(error.message || "Registration failed. Please try again.");
+      
+      // Don't show the email rate limit error, instead show a generic message
+      if (error.message?.includes("rate limit") || error.message?.includes("rate exceeded")) {
+        setGeneralError("Registration temporarily unavailable. Please try again later or contact support.");
+      } else {
+        setGeneralError(error.message || "Registration failed. Please try again.");
+      }
     }
   };
 
