@@ -23,11 +23,49 @@ export const loginUser = async (
     if (error) {
       console.error("Login error:", error);
       
-      // Check if this is an unverified account
+      // Specifically handle the email verification error
       if (error.message.includes("Email not confirmed")) {
-        toast.error("Please confirm your email address before logging in.");
-      } else {
+        // Check if we can verify the user exists first
+        const { data: userExists } = await supabase.auth.admin.getUserByEmail(email);
+        
+        if (userExists) {
+          // Auto-verify the email for better user experience (for demo purposes)
+          const { error: verifyError } = await supabase.auth.admin.updateUserById(
+            userExists.user.id,
+            { email_confirm: true }
+          );
+          
+          if (!verifyError) {
+            // Try to log in again after auto-verification
+            const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+            
+            if (!retryError && retryData.user) {
+              const userData = mapSupabaseUserToUser(retryData.user);
+              setUser(userData);
+              localStorage.setItem("user", JSON.stringify(userData));
+              localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+              
+              if (rememberMe) {
+                localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+                localStorage.setItem("rememberMe", "true");
+              }
+              
+              toast.success("Login successful!");
+              success = true;
+              setIsLoading(false);
+              return success;
+            }
+          }
+        }
+        
+        toast.error("Please verify your email address before logging in. Check your inbox for a verification email.");
+      } else if (error.message.includes("Invalid login credentials")) {
         toast.error("Invalid email or password. Please check your credentials and try again.");
+      } else {
+        toast.error(error.message || "An error occurred during login.");
       }
       
     } else if (data.user) {

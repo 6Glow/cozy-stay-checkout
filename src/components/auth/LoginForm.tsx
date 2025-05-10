@@ -44,6 +44,10 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
     formState: { errors },
   } = useForm({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      // Try to prefill email from localStorage if available for better UX
+      email: localStorage.getItem("lastEmail") || "",
+    }
   });
   
   const onSubmit = async (formData: any) => {
@@ -54,6 +58,9 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
     // Clear any previous login errors
     setLoginError(null);
     setIsLoading(true);
+    
+    // Save email for convenience
+    localStorage.setItem("lastEmail", formData.email);
     
     try {
       const success = await login(formData.email, formData.password, rememberMe);
@@ -70,13 +77,14 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
           navigate("/");
         }
       } else {
-        // If login wasn't successful, show a more visible error
-        setLoginError("Invalid email or password. Please check your credentials and try again.");
+        // If login wasn't successful, the error will be shown via toast
+        // but we'll set a form error too for visibility
+        setLoginError("Login failed. Please check your email verification status or credentials.");
       }
-      setIsLoading(false);
     } catch (error) {
       console.error("Login form error:", error);
       setLoginError("An unexpected error occurred. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -169,6 +177,10 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
               "Sign in"
             )}
           </Button>
+          
+          <div className="text-sm text-center mt-4 text-muted-foreground">
+            <p>Having trouble logging in? Try checking your email for verification.</p>
+          </div>
         </CardContent>
       </Card>
     </form>
