@@ -25,10 +25,14 @@ interface LoginFormProps {
   setAuthError?: (error: string | null) => void;
 }
 
+// Fix the login schema to include both email and password
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
+
+// Define the form data type based on the schema
+type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -42,15 +46,16 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({
+  } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       // Try to prefill email from localStorage if available for better UX
       email: localStorage.getItem("lastEmail") || "",
+      password: "",
     }
   });
   
-  const onSubmit = async (formData: any) => {
+  const onSubmit = async (formData: LoginFormData) => {
     if (authError && setAuthError) {
       setAuthError(null);
     }
