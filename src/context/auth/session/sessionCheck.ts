@@ -10,6 +10,8 @@ export const checkSession = async (): Promise<{
   success: boolean;
 }> => {
   try {
+    console.log("Checking for active session...");
+    
     // Check for stored user data as a quick first check
     const storedUser = localStorage.getItem("user");
     const lastAuthTime = localStorage.getItem("sb-last-auth-time");
@@ -23,6 +25,7 @@ export const checkSession = async (): Promise<{
       
       // If authenticated in the last 2 minutes, use stored data for better UX
       if (minutesSinceLastAuth < 2) {
+        console.log("Using cached user data (authenticated within last 2 minutes)");
         return { user: JSON.parse(storedUser), success: true };
       }
     }
@@ -32,7 +35,6 @@ export const checkSession = async (): Promise<{
     
     if (error) {
       console.error("Error checking session:", error);
-      toast.error("Session verification failed. Please try logging in again.");
       return { user: null, success: false };
     }
     
@@ -43,28 +45,65 @@ export const checkSession = async (): Promise<{
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("sb-last-auth-time", new Date().toISOString());
       
+      console.log("Active session found and verified");
       return { user: userData, success: true };
     } else {
       // No active session, try to refresh it
+      console.log("No active session found, attempting refresh...");
+      
       if (storedUser) {
-        console.log("No active session but stored user found. Trying to refresh...");
+        console.log("Stored user found. Trying to refresh session...");
         const refreshResult = await refreshSession();
+        
         if (refreshResult.success) {
           console.log("Session refreshed successfully");
+          return refreshResult;
         } else {
           console.log("Failed to refresh session");
-          // Clear stored user if refresh fails
+          
+          // Try auto-login with stored credentials
+          const storedCreds = localStorage.getItem("auth_credentials");
+          
+          if (storedCreds) {
+            try {
+              console.log("Attempting login with stored credentials");
+              const { email, password } = JSON.parse(storedCreds);
+              
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password
+              });
+              
+              if (!signInError && signInData.user) {
+                const userData = mapSupabaseUserToUser(signInData.user);
+                localStorage.setItem("user", JSON.stringify(userData));
+                localStorage.setItem("sb-last-auth-time", new Date().toISOString());
+                
+                console.log("Auto-login successful");
+                return { user: userData, success: true };
+              } else {
+                console.log("Auto-login failed:", signInError?.message);
+                // Clear stored credentials if login failed and remember me is not set
+                if (localStorage.getItem("rememberMe") !== "true") {
+                  localStorage.removeItem("auth_credentials");
+                  localStorage.removeItem("rememberMe");
+                }
+              }
+            } catch (e) {
+              console.log("Error using stored credentials:", e);
+            }
+          }
+          
+          // Clear stored user if all refresh attempts fail
           localStorage.removeItem("user");
           localStorage.removeItem("sb-last-auth-time");
         }
-        return refreshResult;
       }
       
       return { user: null, success: false };
     }
   } catch (error) {
     console.error("Error checking session:", error);
-    toast.error("Session verification failed. Please try logging in again.");
     return { user: null, success: false };
   }
 };

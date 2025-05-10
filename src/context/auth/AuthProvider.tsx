@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Auto-login from stored credentials
+  // Improved auto-login from stored credentials
   const tryAutoLogin = async () => {
     try {
       const storedCreds = localStorage.getItem("auth_credentials");
@@ -38,53 +38,79 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           if (data.user && !error) {
             console.log("Auto-login successful");
             // Session will be set by the auth state listener
+            return true;
           } else if (error) {
             console.error("Auto-login failed:", error.message);
             // If auto-login fails, clear stored credentials to prevent future failed attempts
-            if (error.message?.includes("Invalid login credentials")) {
+            if (error.message?.includes("Invalid login credentials") && 
+                localStorage.getItem("rememberMe") !== "true") {
               localStorage.removeItem("auth_credentials");
               localStorage.removeItem("rememberMe");
             }
           }
         }
       }
+      return false;
     } catch (error) {
       console.error("Auto-login error:", error);
+      return false;
     }
   };
 
-  // Set up auth state listener and check for existing session
+  // Enhanced session management with better error handling
   useEffect(() => {
+    // Track if the component is mounted to avoid state updates after unmount
+    let isMounted = true;
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
+        console.log("Auth state changed:", event);
         handleAuthStateChange(event, session, setUser);
-        setIsLoading(false);
+        
+        if (event === 'SIGNED_OUT') {
+          setIsLoading(false);
+        }
       }
     );
 
     // THEN check for existing session
     const initializeSession = async () => {
-      const sessionResult = await checkSession();
-      if (sessionResult.user) {
-        setUser(sessionResult.user);
-      } else {
-        // Try to auto-login if we don't have a session
-        await tryAutoLogin();
+      try {
+        console.log("Initializing auth session...");
+        const sessionResult = await checkSession();
+        
+        if (sessionResult.user) {
+          console.log("Existing session found");
+          setUser(sessionResult.user);
+        } else {
+          console.log("No session found, trying auto-login");
+          // Try to auto-login if we don't have a session
+          await tryAutoLogin();
+        }
+      } catch (error) {
+        console.error("Session initialization error:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
     initializeSession();
     
-    // Set up session refresh interval (every 5 minutes to ensure freshness)
+    // Set up session refresh interval (every 4 minutes to ensure freshness)
     const refreshInterval = setInterval(async () => {
-      console.log("Refreshing session token...");
+      if (!isMounted) return;
+      
       try {
         const { data, error } = await supabase.auth.refreshSession();
+        
         if (error) {
           console.error("Error refreshing session:", error);
-          // If we can't refresh, try auto-login
+          // If session refresh fails, try auto-login
           await tryAutoLogin();
         } else if (data.session) {
           console.log("Session refreshed successfully");
@@ -94,10 +120,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } catch (error) {
         console.error("Error in refresh interval:", error);
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 4 * 60 * 1000); // 4 minutes
     
     // Clean up subscription and interval
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       clearInterval(refreshInterval);
     };

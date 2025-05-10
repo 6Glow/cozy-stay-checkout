@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,28 +12,78 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Cart = () => {
   const { items, removeFromCart, clearCart, totalPrice } = useCart();
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [isSessionValid, setIsSessionValid] = useState(true);
   const navigate = useNavigate();
   
-  // Check for authenticated user on component mount
+  // Check for authenticated user and session validity on component mount
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session check error:", error);
+          setIsSessionValid(false);
+          return;
+        }
+        
         if (!data.session) {
           console.log("No active session detected in Cart");
+          setIsSessionValid(false);
+          
+          // Check if we can auto-login
+          const storedCreds = localStorage.getItem("auth_credentials");
+          if (storedCreds) {
+            try {
+              const { email, password } = JSON.parse(storedCreds);
+              const loginSuccess = await login(email, password, true);
+              if (loginSuccess) {
+                setIsSessionValid(true);
+              } else {
+                // Clear invalid credentials
+                if (localStorage.getItem("rememberMe") !== "true") {
+                  localStorage.removeItem("auth_credentials");
+                }
+              }
+            } catch (err) {
+              console.error("Auto-login error:", err);
+            }
+          }
+        } else {
+          setIsSessionValid(true);
         }
       } catch (error) {
         console.error("Error checking session:", error);
+        setIsSessionValid(false);
       }
     };
     
     checkAuthStatus();
-  }, []);
+  }, [login]);
   
   const handleProceedToCheckout = async () => {
+    // Reset previous errors
+    setProcessingError(null);
+    
+    // Check session validity first
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error || !data.session) {
+        toast.error("Your session has expired. Please log in again.");
+        localStorage.setItem("checkoutRedirect", "/cart");
+        navigate("/login?redirect=" + encodeURIComponent("/cart"));
+        return;
+      }
+    } catch (err) {
+      console.error("Session check error:", err);
+      toast.error("Failed to verify your session. Please try again.");
+      return;
+    }
+    
     if (!user) {
       toast.error("Please log in to proceed to checkout");
       localStorage.setItem("checkoutRedirect", "/cart");
@@ -48,7 +97,6 @@ const Cart = () => {
     }
     
     setIsProcessing(true);
-    setProcessingError(null);
     
     try {
       console.log("Checkout initiated for user:", user.id);
@@ -74,6 +122,7 @@ const Cart = () => {
       }
       
       if (!sessionData.session) {
+        // Try to refresh the session
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError || !refreshData.session) {
@@ -87,9 +136,11 @@ const Cart = () => {
         sessionData.session = refreshData.session;
       }
 
+      // Store the access token from the refreshed session
       const accessToken = sessionData.session.access_token;
       console.log("Using access token:", accessToken ? "Token available" : "No token");
       
+      // Call the payment function with the fresh token
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           amount: grandTotal,
@@ -113,7 +164,12 @@ const Cart = () => {
             error.message?.toLowerCase().includes('unauthorized')) {
           
           // Try refreshing token one more time
-          const { data: refreshResult } = await supabase.auth.refreshSession();
+          const { data: refreshResult, error: refreshErr } = await supabase.auth.refreshSession();
+          
+          if (refreshErr || !refreshResult.session) {
+            throw new Error('Session refresh failed. Please log in again.');
+          }
+          
           if (refreshResult.session) {
             toast.info("Retrying payment...");
             
@@ -147,8 +203,6 @@ const Cart = () => {
               window.location.href = retryData.checkoutUrl;
               return;
             }
-          } else {
-            throw new Error('Session refresh failed. Please log in again.');
           }
         } else {
           throw error;
@@ -257,6 +311,16 @@ const Cart = () => {
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>
               {processingError}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {!isSessionValid && (
+          <Alert variant="warning" className="mb-6 bg-yellow-50 border-yellow-200">
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
+            <AlertTitle className="text-yellow-700">Session Warning</AlertTitle>
+            <AlertDescription className="text-yellow-700">
+              Your session may have expired. <Link to="/login?redirect=/cart" className="underline font-medium">Click here to log in again</Link> before checking out.
             </AlertDescription>
           </Alert>
         )}
