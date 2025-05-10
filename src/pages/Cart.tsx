@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -316,7 +317,7 @@ const Cart = () => {
         )}
         
         {!isSessionValid && (
-          <Alert variant="warning" className="mb-6 bg-yellow-50 border-yellow-200">
+          <Alert variant="default" className="mb-6 bg-yellow-50 border-yellow-200">
             <AlertCircle className="h-4 w-4 text-yellow-500" />
             <AlertTitle className="text-yellow-700">Session Warning</AlertTitle>
             <AlertDescription className="text-yellow-700">
