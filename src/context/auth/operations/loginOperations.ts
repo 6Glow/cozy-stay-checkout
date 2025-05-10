@@ -25,39 +25,40 @@ export const loginUser = async (
       
       // Specifically handle the email verification error
       if (error.message.includes("Email not confirmed")) {
-        // Check if we can verify the user exists first
-        const { data: userExists } = await supabase.auth.admin.getUserByEmail(email);
+        // We can't use getUserByEmail directly since it doesn't exist in the client API
+        // Instead, we'll try a different approach to auto-verify the email
         
-        if (userExists) {
-          // Auto-verify the email for better user experience (for demo purposes)
-          const { error: verifyError } = await supabase.auth.admin.updateUserById(
-            userExists.user.id,
-            { email_confirm: true }
-          );
+        // Try to sign up with the same credentials, which might trigger a different flow
+        const { error: signupError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin + '/login'
+          }
+        });
+        
+        if (!signupError) {
+          // Try to log in again immediately
+          const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
           
-          if (!verifyError) {
-            // Try to log in again after auto-verification
-            const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
+          if (!retryError && retryData.user) {
+            const userData = mapSupabaseUserToUser(retryData.user);
+            setUser(userData);
+            localStorage.setItem("user", JSON.stringify(userData));
+            localStorage.setItem("sb-last-auth-time", new Date().toISOString());
             
-            if (!retryError && retryData.user) {
-              const userData = mapSupabaseUserToUser(retryData.user);
-              setUser(userData);
-              localStorage.setItem("user", JSON.stringify(userData));
-              localStorage.setItem("sb-last-auth-time", new Date().toISOString());
-              
-              if (rememberMe) {
-                localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
-                localStorage.setItem("rememberMe", "true");
-              }
-              
-              toast.success("Login successful!");
-              success = true;
-              setIsLoading(false);
-              return success;
+            if (rememberMe) {
+              localStorage.setItem("auth_credentials", JSON.stringify({ email, password }));
+              localStorage.setItem("rememberMe", "true");
             }
+            
+            toast.success("Login successful!");
+            success = true;
+            setIsLoading(false);
+            return success;
           }
         }
         
