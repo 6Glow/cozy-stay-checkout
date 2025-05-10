@@ -15,6 +15,7 @@ export const loginUser = async (
   let success = false;
   
   try {
+    // First attempt to sign in directly - this will work if email is already confirmed
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -23,28 +24,28 @@ export const loginUser = async (
     if (error) {
       console.error("Login error:", error);
       
-      // Specifically handle the email verification error
+      // If error is about email not being confirmed, try to auto-verify
       if (error.message.includes("Email not confirmed")) {
-        // We can't use getUserByEmail directly since it doesn't exist in the client API
-        // Instead, we'll try a different approach to auto-verify the email
+        console.log("Attempting to bypass email verification...");
         
-        // Try to sign up with the same credentials, which might trigger a different flow
+        // Try signup again to trigger auto-verification (in development mode)
         const { error: signupError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin + '/login'
+            emailRedirectTo: window.location.origin
           }
         });
         
         if (!signupError) {
-          // Try to log in again immediately
+          // Try to sign in again immediately - this may work in development with email verification disabled
           const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
           
           if (!retryError && retryData.user) {
+            // Success! User is now logged in
             const userData = mapSupabaseUserToUser(retryData.user);
             setUser(userData);
             localStorage.setItem("user", JSON.stringify(userData));
@@ -62,7 +63,8 @@ export const loginUser = async (
           }
         }
         
-        toast.error("Please verify your email address before logging in. Check your inbox for a verification email.");
+        // If we reached here, all attempts failed
+        toast.error("Login failed. Try again or contact support.");
       } else if (error.message.includes("Invalid login credentials")) {
         toast.error("Invalid email or password. Please check your credentials and try again.");
       } else {

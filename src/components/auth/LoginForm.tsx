@@ -25,7 +25,7 @@ interface LoginFormProps {
   setAuthError?: (error: string | null) => void;
 }
 
-// Fix the login schema to include both email and password
+// Login schema with both email and password
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
@@ -84,7 +84,7 @@ const LoginForm = ({ redirectUrl, authError, setAuthError }: LoginFormProps) => 
       } else {
         // If login wasn't successful, the error will be shown via toast
         // but we'll set a form error too for visibility
-        setLoginError("Login failed. Please check your email verification status or credentials.");
+        setLoginError("Login failed. Please check your credentials and try again.");
       }
     } catch (error) {
       console.error("Login form error:", error);
